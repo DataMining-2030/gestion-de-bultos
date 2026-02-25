@@ -1,12 +1,8 @@
 import React from 'react';
+import Login from './pages/Login';
 
 function App() {
-  return (
-    <div style={{ padding: '20px' }}>
-      <h1>Gestión de Bultos</h1>
-      <p>Bienvenido a la aplicación</p>
-    </div>
-  );
+  return <Login />;
 }
 
 export default App;
