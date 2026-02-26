@@ -165,17 +165,5 @@
   }
 }
 
-/* Animaciones personalizadas */
-@layer utilities {
-  .animate-fade-in {
-    @apply animate-fade-in;
-  }
-
-  .animate-slide-up {
-    @apply animate-slide-up;
-  }
-
-  .animate-bounce-gentle {
-    @apply animate-bounce-gentle;
-  }
-}
+/* Las animaciones están definidas en tailwind.config.js */
+/* No necesitan ser redefinidas aquí */

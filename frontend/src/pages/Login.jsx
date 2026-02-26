@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './Login.css';
 
-function Login() {
+function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -44,8 +44,12 @@ function Login() {
 
       if (response.ok) {
         setSuccess('¡Login exitoso! Redirigiendo...');
-        // Aquí iría la redirección a la pantalla principal
-        console.log('Login exitoso:', data);
+        // Llamar callback de login exitoso
+        setTimeout(() => {
+          if (onLoginSuccess) {
+            onLoginSuccess();
+          }
+        }, 1000);
         setEmail('');
         setPassword('');
       } else {
@@ -140,15 +144,7 @@ function Login() {
             </button>
           </form>
 
-          {/* Footer */}
-          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 text-center">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              ¿No tienes cuenta?{' '}
-              <button className="text-primary-500 hover:text-primary-600 font-medium transition-colors">
-                Regístrate aquí
-              </button>
-            </p>
-          </div>
+          {/* Footer - Eliminado */}
         </div>
 
         {/* Versión de prueba */}

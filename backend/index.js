@@ -1,12 +1,16 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
+const { validarCredenciales } = require('./config/credenciales.config');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
+
+// Validar credenciales al iniciar
+console.log('📋 Estado de credenciales:', validarCredenciales());
 
 // Ruta base
 app.get('/', (req, res) => {
