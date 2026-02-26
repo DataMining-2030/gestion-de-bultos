@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 function GestionBultos({ onBack }) {
   const [codigoBulto, setCodigoBulto] = useState('');
@@ -7,6 +7,10 @@ function GestionBultos({ onBack }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [estadoHistorico, setEstadoHistorico] = useState({});
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState('');
+  const [bultosAGuardar, setBultosAGuardar] = useState([]);
 
   const handleBuscar = async (e) => {
     e.preventDefault();
@@ -14,6 +18,8 @@ function GestionBultos({ onBack }) {
     setSuccess('');
     setBultoInfo(null);
     setOtrosBultos([]);
+    setEstadoHistorico({});
+    setShowConfirm(false);
 
     if (!codigoBulto.trim()) {
       setError('Por favor ingresa un código de bulto');
@@ -39,11 +45,15 @@ function GestionBultos({ onBack }) {
         fechaDocumento: data.bulto.fechaDocumento,
         fechaOV: data.bulto.fechaOV,
         ov: data.bulto.ov,
+        totalEnFactura: data.totalBultosEnFactura,
       });
 
       if (data.otrosBultos && data.otrosBultos.length > 0) {
         setOtrosBultos(data.otrosBultos);
       }
+
+      // Verificar estado en histórico
+      await verificarEnHistorico([data.bulto.codigo, ...data.otrosBultos.map(b => b.codigo)]);
 
       setLoading(false);
     } catch (err) {
@@ -52,17 +62,87 @@ function GestionBultos({ onBack }) {
     }
   };
 
+  const verificarEnHistorico = async (codigos) => {
+    try {
+      const response = await fetch('http://localhost:5000/api/historico/verificar-multiples', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codigos })
+      });
+
+      if (response.ok) {
+        const resultado = await response.json();
+        setEstadoHistorico(resultado);
+      }
+    } catch (err) {
+      console.error('Error verificando histórico:', err);
+    }
+  };
+
   const handleGuardarEnHistorico = () => {
     if (!bultoInfo) return;
 
-    // TODO: Guardar en base de datos
-    setSuccess('✅ Bulto guardado en histórico exitosamente');
-    setTimeout(() => {
-      setCodigoBulto('');
-      setBultoInfo(null);
-      setOtrosBultos([]);
-      setSuccess('');
-    }, 2000);
+    // Solo guardar el bulto principal (el que se buscó)
+    if (estadoHistorico[bultoInfo.codigo]) {
+      setConfirmMessage(
+        `⚠️ Este bulto ya está en histórico:\n${bultoInfo.codigo}\n\n¿Deseas intentar guardarlo de todas formas?`
+      );
+      setBultosAGuardar([bultoInfo.codigo]);
+      setShowConfirm(true);
+    } else {
+      guardarBultosEnHistorico([bultoInfo.codigo]);
+    }
+  };
+
+  const guardarBultosEnHistorico = async (codigos) => {
+    try {
+      let guardados = 0;
+
+      for (const codigo of codigos) {
+        const bulto = codigo === bultoInfo.codigo ? bultoInfo : otrosBultos.find(b => b.codigo === codigo);
+        
+        const response = await fetch('http://localhost:5000/api/historico/guardar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            codigo_bulto: bulto.codigo,
+            factura: bulto.factura,
+            ov: bulto.ov,
+            fecha_documento: bulto.fechaDocumento,
+            fecha_ov: bulto.fechaOV
+          })
+        });
+
+        if (response.ok) {
+          guardados++;
+          // Actualizar estado
+          const nuevoEstado = { ...estadoHistorico };
+          nuevoEstado[codigo] = true;
+          setEstadoHistorico(nuevoEstado);
+        }
+      }
+
+      setSuccess(`✅ ${guardados} bulto(s) guardado(s) en histórico exitosamente`);
+      setShowConfirm(false);
+      
+      setTimeout(() => {
+        setCodigoBulto('');
+        setBultoInfo(null);
+        setOtrosBultos([]);
+        setEstadoHistorico({});
+        setSuccess('');
+      }, 2000);
+    } catch (err) {
+      setError('Error al guardar bultos: ' + err.message);
+    }
+  };
+
+  const getEstadoIndicador = (codigo) => {
+    if (estadoHistorico[codigo]) {
+      return { icon: '✓', color: 'text-success-600', bg: 'bg-success-50', label: 'En histórico' };
+    } else {
+      return { icon: '✕', color: 'text-danger-600', bg: 'bg-danger-50', label: 'Nuevo' };
+    }
   };
 
   return (
@@ -132,16 +212,23 @@ function GestionBultos({ onBack }) {
             <div className="card border-l-4 border-l-primary-500">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                    {bultoInfo.codigo}
-                  </h2>
+                  <div className="flex items-center gap-3 mb-2">
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                      {bultoInfo.codigo}
+                    </h2>
+                    {(() => {
+                      const estado = getEstadoIndicador(bultoInfo.codigo);
+                      return (
+                        <span className={`text-2xl font-bold ${estado.color}`}>
+                          {estado.icon}
+                        </span>
+                      );
+                    })()}
+                  </div>
                   <p className="text-gray-600 dark:text-gray-400">
                     Factura: {bultoInfo.factura}
                   </p>
                 </div>
-                <span className="badge badge-success">
-                  Encontrado en HANA
-                </span>
               </div>
 
               {/* Grid de información */}
@@ -192,36 +279,48 @@ function GestionBultos({ onBack }) {
                   </div>
                 </div>
               </div>
-
-              {/* Otros bultos en la factura */}
-              {otrosBultos.length > 0 && (
-                <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-                  <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                    Otros Bultos en Factura {bultoInfo.factura}
-                  </h4>
-                  <div className="overflow-x-auto">
-                    <table className="table-striped w-full text-sm">
-                      <thead>
-                        <tr>
-                          <th>Código</th>
-                          <th>Cantidad</th>
-                          <th>Factura</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {otrosBultos.map((bulto, idx) => (
-                          <tr key={idx}>
-                            <td className="font-medium">{bulto.codigo}</td>
-                            <td>{bulto.cantidadBultos}</td>
-                            <td>{bulto.factura}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
             </div>
+
+            {/* Otros bultos en la factura */}
+            {otrosBultos.length > 0 && (
+              <div className="card">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                  📦 Otros Bultos en Factura {bultoInfo.factura}
+                  <span className="text-sm font-normal text-gray-600 dark:text-gray-400 ml-2">
+                    ({otrosBultos.length} bultos adicionales)
+                  </span>
+                </h3>
+
+                <div className="space-y-2">
+                  {otrosBultos.map((bulto, idx) => {
+                    const estado = getEstadoIndicador(bulto.codigo);
+                    return (
+                      <div 
+                        key={idx} 
+                        className={`flex items-center gap-3 p-3 ${estado.bg} rounded-lg border ${
+                          estadoHistorico[bulto.codigo] ? 'border-success-200' : 'border-danger-200'
+                        }`}
+                      >
+                        <div className={`text-2xl font-bold ${estado.color}`}>
+                          {estado.icon}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900 dark:text-gray-100">
+                            {bulto.codigo}
+                          </p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                            Factura: {bulto.factura} | Cantidad: {bulto.cantidadBultos}
+                          </p>
+                        </div>
+                        <span className={`badge ${estado.bg} ${estado.color} text-xs font-semibold`}>
+                          {estado.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Botones de acción */}
             <div className="flex gap-3">
@@ -236,6 +335,7 @@ function GestionBultos({ onBack }) {
                   setCodigoBulto('');
                   setBultoInfo(null);
                   setOtrosBultos([]);
+                  setEstadoHistorico({});
                 }}
                 className="btn-outline flex-1"
               >
@@ -248,6 +348,34 @@ function GestionBultos({ onBack }) {
                 <p className="text-sm text-success-700 dark:text-success-200">{success}</p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Modal de confirmación */}
+        {showConfirm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
+                ⚠️ Confirmación
+              </h3>
+              <p className="text-gray-700 dark:text-gray-300 mb-6 whitespace-pre-line">
+                {confirmMessage}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowConfirm(false)}
+                  className="btn-outline flex-1"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => guardarBultosEnHistorico(bultosAGuardar)}
+                  className="btn-success flex-1"
+                >
+                  Continuar
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

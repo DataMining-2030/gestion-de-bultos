@@ -18,14 +18,19 @@ async function conectarHANA() {
       useTLS: false,
     };
 
+    console.log(`📡 Intentando conectar a HANA: ${connOptions.serverNode}`);
+    console.log(`   Usuario: ${connOptions.uid}`);
+
     const connection = hana.createConnection();
     
     connection.connect(connOptions, (err) => {
       if (err) {
         console.error('❌ Error conectando a HANA:', err.message);
+        console.error('   Código:', err.code);
+        console.error('   Verifica: usuario, contraseña, host y puerto');
         reject(err);
       } else {
-        console.log('✅ Conectado a SAP HANA');
+        console.log('✅ Conectado a SAP HANA exitosamente');
         resolve(connection);
       }
     });
@@ -43,7 +48,7 @@ async function obtenerBultoHANA(codigoBulto) {
     connection = await conectarHANA();
 
     return new Promise((resolve, reject) => {
-      // Query para obtener el bulto y todos los bultos asociados a esa factura
+      // Query para obtener el bulto y TODOS los bultos de la misma factura
       const query = `
         SELECT 
           "Bultos",
@@ -52,15 +57,17 @@ async function obtenerBultoHANA(codigoBulto) {
           "FECHA_OV",
           "FolioNum",
           "OV"
-        FROM "BI_CMK"."CMK_DOC_LOTE"
-        WHERE "Bultos" LIKE '%${codigoBulto}%'
-        OR "FolioNum" = (
+        FROM "_SYS_BIC"."BI_CMK/CMK_DOC_LOTE"
+        WHERE "FolioNum" = (
           SELECT "FolioNum" 
-          FROM "BI_CMK"."CMK_DOC_LOTE"
+          FROM "_SYS_BIC"."BI_CMK/CMK_DOC_LOTE"
           WHERE "Bultos" LIKE '%${codigoBulto}%'
           LIMIT 1
         )
+        ORDER BY "Bultos"
       `;
+
+      console.log(`📝 Obteniendo bultos de HANA para factura...`);
 
       connection.exec(query, (err, result) => {
         connection.close((closeErr) => {
@@ -71,8 +78,31 @@ async function obtenerBultoHANA(codigoBulto) {
           console.error('❌ Error en query HANA:', err.message);
           reject(err);
         } else {
-          console.log(`📦 Bultos encontrados para: ${codigoBulto}`);
-          resolve(result);
+          // Procesar los resultados: dividir bultos concatenados
+          const bultosExpandidos = [];
+          
+          result.forEach(row => {
+            if (row.Bultos && row.Bultos.includes(';')) {
+              // Si contiene múltiples bultos separados por ;
+              const codigosBultos = row.Bultos.split(';').map(b => b.trim()).filter(b => b);
+              codigosBultos.forEach(codigo => {
+                bultosExpandidos.push({
+                  Bultos: codigo,
+                  CANT_BULTOS: row.CANT_BULTOS,
+                  DocDate: row.DocDate,
+                  FECHA_OV: row.FECHA_OV,
+                  FolioNum: row.FolioNum,
+                  OV: row.OV
+                });
+              });
+            } else {
+              // Si es un bulto único
+              bultosExpandidos.push(row);
+            }
+          });
+
+          console.log(`📦 Total de bultos expandidos: ${bultosExpandidos.length}`);
+          resolve(bultosExpandidos);
         }
       });
     });
