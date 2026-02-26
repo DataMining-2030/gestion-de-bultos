@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
-function GestionBultos({ onBack }) {
-  const [codigoBulto, setCodigoBulto] = useState('');
+function GestionBultos({ onBack, codigoBultoInicial }) {
+  const [codigoBulto, setCodigoBulto] = useState(codigoBultoInicial || '');
   const [bultoInfo, setBultoInfo] = useState(null);
   const [otrosBultos, setOtrosBultos] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -11,7 +11,15 @@ function GestionBultos({ onBack }) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState('');
   const [bultosAGuardar, setBultosAGuardar] = useState([]);
-    e.preventDefault();
+
+  // Si viene codigoBultoInicial, buscar automáticamente
+  useEffect(() => {
+    if (codigoBultoInicial) {
+      buscarBulto(codigoBultoInicial);
+    }
+  }, [codigoBultoInicial]);
+
+  const buscarBulto = async (codigo) => {
     setError('');
     setSuccess('');
     setBultoInfo(null);

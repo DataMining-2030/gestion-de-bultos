@@ -74,42 +74,68 @@ app.get('/', (req, res) => {
 });
 
 // Ruta de login
-app.post('/api/login', (req, res) => {
-  const { email, password } = req.body;
+app.post('/api/login', async (req, res) => {
+  try {
+    const { usuario, contraseña } = req.body;
 
-  // Validaciones básicas
-  if (!email || !password) {
-    return res.status(400).json({ 
-      mensaje: 'Email y contraseña son requeridos' 
+    // Validaciones básicas
+    if (!usuario || !contraseña) {
+      return res.status(400).json({ 
+        mensaje: 'Usuario y contraseña son requeridos' 
+      });
+    }
+
+    if (usuario.length < 3) {
+      return res.status(400).json({ 
+        mensaje: 'El usuario debe tener al menos 3 caracteres' 
+      });
+    }
+
+    if (contraseña.length < 6) {
+      return res.status(400).json({ 
+        mensaje: 'La contraseña debe tener al menos 6 caracteres' 
+      });
+    }
+
+    // Buscar usuario en la BD
+    const connection = await pool.getConnection();
+    const [rows] = await connection.query(
+      'SELECT id, usuario, tipo_permiso, activo FROM cmk_usuarios_bulto WHERE usuario = ? AND contraseña = ?',
+      [usuario, contraseña]
+    );
+    connection.release();
+
+    if (rows.length === 0) {
+      return res.status(401).json({
+        mensaje: 'Usuario o contraseña incorrectos'
+      });
+    }
+
+    const usuarioData = rows[0];
+
+    if (!usuarioData.activo) {
+      return res.status(403).json({
+        mensaje: 'El usuario está inactivo'
+      });
+    }
+
+    // Login exitoso
+    res.status(200).json({
+      mensaje: 'Login exitoso',
+      usuario: {
+        id: usuarioData.id,
+        usuario: usuarioData.usuario,
+        tipo_permiso: usuarioData.tipo_permiso
+      },
+      token: 'fake-jwt-token-' + Date.now(),
+    });
+  } catch (error) {
+    console.error('❌ Error en login:', error.message);
+    res.status(500).json({
+      mensaje: 'Error en el login',
+      detalle: error.message
     });
   }
-
-  // Validar email (formato básico)
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return res.status(400).json({ 
-      mensaje: 'Email inválido' 
-    });
-  }
-
-  // Validar contraseña (mínimo 6 caracteres)
-  if (password.length < 6) {
-    return res.status(400).json({ 
-      mensaje: 'La contraseña debe tener al menos 6 caracteres' 
-    });
-  }
-
-  // Simulamos un login exitoso (sin base de datos)
-  // TODO: Conectar con base de datos real
-  res.status(200).json({
-    mensaje: 'Login exitoso',
-    usuario: {
-      id: 1,
-      email: email,
-      nombre: email.split('@')[0],
-    },
-    token: 'fake-jwt-token-' + Date.now(),
-  });
 });
 
 // Ruta para obtener información de un bulto desde HANA

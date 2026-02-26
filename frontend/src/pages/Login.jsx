@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import './Login.css';
 
 function Login({ onLoginSuccess }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [usuario, setUsuario] = useState('');
+  const [contraseña, setContraseña] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
@@ -14,17 +14,17 @@ function Login({ onLoginSuccess }) {
     setSuccess('');
 
     // Validaciones básicas
-    if (!email || !password) {
+    if (!usuario || !contraseña) {
       setError('Por favor completa todos los campos');
       return;
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError('Por favor ingresa un email válido');
+    if (usuario.length < 3) {
+      setError('El usuario debe tener al menos 3 caracteres');
       return;
     }
 
-    if (password.length < 6) {
+    if (contraseña.length < 6) {
       setError('La contraseña debe tener al menos 6 caracteres');
       return;
     }
@@ -37,7 +37,7 @@ function Login({ onLoginSuccess }) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ usuario, contraseña }),
       });
 
       const data = await response.json();
@@ -50,8 +50,8 @@ function Login({ onLoginSuccess }) {
             onLoginSuccess();
           }
         }, 1000);
-        setEmail('');
-        setPassword('');
+        setUsuario('');
+        setContraseña('');
       } else {
         setError(data.mensaje || 'Error en el login. Intenta de nuevo.');
       }
@@ -76,32 +76,33 @@ function Login({ onLoginSuccess }) {
 
           {/* Formulario */}
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Email */}
+            {/* Usuario */}
             <div className="form-group">
-              <label htmlFor="email" className="form-label">
-                Correo Electrónico
+              <label htmlFor="usuario" className="form-label">
+                Usuario
               </label>
               <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu@email.com"
+                id="usuario"
+                type="text"
+                value={usuario}
+                onChange={(e) => setUsuario(e.target.value)}
+                placeholder="Ingresa tu usuario"
                 className="input-field"
                 disabled={loading}
+                autoFocus
               />
             </div>
 
-            {/* Password */}
+            {/* Contraseña */}
             <div className="form-group">
-              <label htmlFor="password" className="form-label">
+              <label htmlFor="contraseña" className="form-label">
                 Contraseña
               </label>
               <input
-                id="password"
+                id="contraseña"
                 type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                value={contraseña}
+                onChange={(e) => setContraseña(e.target.value)}
                 placeholder="••••••••"
                 className="input-field"
                 disabled={loading}
