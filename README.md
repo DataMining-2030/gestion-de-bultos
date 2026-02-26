@@ -4,25 +4,37 @@ Aplicación Electron + React + Node.js para gestión de bultos con integración 
 
 ## 🚀 Instalación (2 Pasos)
 
-### Requisitos
+### Para Usuarios Finales
+
+**Descarga y ejecuta:**
+```
+instalador-gestion-bultos.exe
+```
+
+Eso es todo. El instalador hace todo automáticamente.
+
+---
+
+### Para Desarrolladores
+
+**Requisitos**
 - Node.js v24.14.0+
 - npm (viene con Node.js)
 
-### Instalar
-
+**Instalar desde código fuente:**
 ```bash
 git clone https://github.com/DataMining-2030/gestion-de-bultos.git
 cd gestion-de-bultos
 node install.js
-```
-
-### Usar
-
-```bash
 npm run electron-dev
 ```
 
-¡Eso es todo! El instalador verifica requisitos e instala todo automáticamente.
+**Generar instalador .exe:**
+```bash
+node build-installer.js
+```
+
+Esto genera `instalador-gestion-bultos.exe` que puedes distribuir a usuarios finales.
 
 ## 📋 Configuración de credenciales
 
