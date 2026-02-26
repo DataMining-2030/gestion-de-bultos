@@ -106,7 +106,7 @@ function Historico({ onBack, onBultoSelected }) {
                   setSearchTerm(e.target.value);
                   setCurrentPage(1);
                 }}
-                placeholder="Código, Factura u OV..."
+                placeholder="Bulto, Factura u OV..."
                 className="input-field"
               />
             </div>

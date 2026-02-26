@@ -45,7 +45,10 @@ function Home({ onLogout }) {
   if (currentPage === 'bultos') {
     return (
       <GestionBultos 
-        onBack={() => setCurrentPage('home')}
+        onBack={() => {
+          setCodigoBultoABuscar(null);
+          setCurrentPage('home');
+        }}
         codigoBultoInicial={codigoBultoABuscar}
       />
     );
