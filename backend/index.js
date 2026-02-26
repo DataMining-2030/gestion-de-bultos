@@ -65,6 +65,50 @@ async function inicializarTablaHistorico() {
 // Llamar al inicializar
 inicializarTablaHistorico();
 
+// Inicializar tabla de usuarios
+async function inicializarTablaUsuarios() {
+  try {
+    const connection = await pool.getConnection();
+    
+    const query = `
+      CREATE TABLE IF NOT EXISTS cmk_usuarios_bulto (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        usuario VARCHAR(50) NOT NULL UNIQUE,
+        contraseña VARCHAR(255) NOT NULL,
+        tipo_permiso VARCHAR(50) DEFAULT 'dev',
+        fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        activo BOOLEAN DEFAULT TRUE,
+        INDEX idx_usuario (usuario)
+      )
+    `;
+    
+    await connection.query(query);
+    
+    // Verificar si existe el usuario 'david'
+    const [usuarioExistente] = await connection.query(
+      'SELECT id FROM cmk_usuarios_bulto WHERE usuario = ?',
+      ['david']
+    );
+    
+    // Si no existe, crear usuario david
+    if (usuarioExistente.length === 0) {
+      await connection.query(
+        'INSERT INTO cmk_usuarios_bulto (usuario, contraseña, tipo_permiso) VALUES (?, ?, ?)',
+        ['david', '123456', 'dev']
+      );
+      console.log('✅ Usuario david creado');
+    }
+    
+    connection.release();
+    console.log('✅ Tabla cmk_usuarios_bulto verificada/creada');
+  } catch (error) {
+    console.error('❌ Error al inicializar tabla de usuarios:', error.message);
+  }
+}
+
+// Llamar al inicializar
+inicializarTablaUsuarios();
+
 // Validar credenciales al iniciar
 console.log('📋 Estado de credenciales:', validarCredenciales());
 

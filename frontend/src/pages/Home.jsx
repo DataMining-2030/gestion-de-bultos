@@ -5,6 +5,7 @@ import Dashboard from './Dashboard';
 
 function Home({ onLogout }) {
   const [currentPage, setCurrentPage] = useState('home');
+  const [codigoBultoABuscar, setCodigoBultoABuscar] = useState(null);
   const [user] = useState({
     nombre: 'Usuario',
     email: 'usuario@email.com',
@@ -42,7 +43,12 @@ function Home({ onLogout }) {
 
   // Renderizar pantalla de Gestión de Bultos
   if (currentPage === 'bultos') {
-    return <GestionBultos onBack={() => setCurrentPage('home')} />;
+    return (
+      <GestionBultos 
+        onBack={() => setCurrentPage('home')}
+        codigoBultoInicial={codigoBultoABuscar}
+      />
+    );
   }
 
   // Renderizar pantalla de Histórico
@@ -51,10 +57,9 @@ function Home({ onLogout }) {
       <Historico 
         onBack={() => setCurrentPage('home')}
         onBultoSelected={(codigo) => {
-          // Ir a gestión de bultos con el código pre-cargado
+          // Guardar el código y ir a gestión de bultos
+          setCodigoBultoABuscar(codigo);
           setCurrentPage('bultos');
-          // El código se buscará automáticamente en GestionBultos
-          // Podemos pasar como parámetro si es necesario
         }}
       />
     );

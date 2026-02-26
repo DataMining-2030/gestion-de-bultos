@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 function GestionBultos({ onBack, codigoBultoInicial }) {
-  const [codigoBulto, setCodigoBulto] = useState(codigoBultoInicial || '');
+  const [codigoBulto, setCodigoBulto] = useState('');
   const [bultoInfo, setBultoInfo] = useState(null);
   const [otrosBultos, setOtrosBultos] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -11,6 +11,18 @@ function GestionBultos({ onBack, codigoBultoInicial }) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState('');
   const [bultosAGuardar, setBultosAGuardar] = useState([]);
+
+  // Limpiar todo al montar el componente
+  useEffect(() => {
+    // Limpiar siempre al entrar
+    setCodigoBulto('');
+    setBultoInfo(null);
+    setOtrosBultos([]);
+    setEstadoHistorico({});
+    setError('');
+    setSuccess('');
+    setShowConfirm(false);
+  }, []);
 
   // Si viene codigoBultoInicial, buscar automáticamente
   useEffect(() => {
@@ -27,7 +39,7 @@ function GestionBultos({ onBack, codigoBultoInicial }) {
     setEstadoHistorico({});
     setShowConfirm(false);
 
-    if (!codigoBulto.trim()) {
+    if (!codigo || !codigo.trim()) {
       setError('Por favor ingresa un código de bulto');
       return;
     }
@@ -35,7 +47,7 @@ function GestionBultos({ onBack, codigoBultoInicial }) {
     setLoading(true);
 
     try {
-      const response = await fetch(`http://localhost:5000/api/bultos/${codigoBulto.trim()}`);
+      const response = await fetch(`http://localhost:5000/api/bultos/${codigo.trim()}`);
       
       if (!response.ok) {
         const data = await response.json();
@@ -66,6 +78,11 @@ function GestionBultos({ onBack, codigoBultoInicial }) {
       setError(err.message || 'Error al buscar bulto');
       setLoading(false);
     }
+  };
+
+  const handleBuscar = async (e) => {
+    e.preventDefault();
+    buscarBulto(codigoBulto);
   };
 
   const verificarEnHistorico = async (codigos) => {
@@ -188,7 +205,7 @@ function GestionBultos({ onBack, codigoBultoInicial }) {
                   type="text"
                   value={codigoBulto}
                   onChange={(e) => setCodigoBulto(e.target.value)}
-                  placeholder="Escanea o ingresa el código..."
+                  placeholder="Escanea o ingresa el bulto..."
                   className="input-field flex-1"
                   disabled={loading}
                   autoFocus
@@ -218,7 +235,7 @@ function GestionBultos({ onBack, codigoBultoInicial }) {
             <div className="card border-l-4 border-l-primary-500">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <div className="flex items-center gap-3 mb-2">
+                  <div className="flex items-center gap-3">
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                       {bultoInfo.codigo}
                     </h2>
@@ -231,33 +248,21 @@ function GestionBultos({ onBack, codigoBultoInicial }) {
                       );
                     })()}
                   </div>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    Factura: {bultoInfo.factura}
-                  </p>
                 </div>
               </div>
 
               {/* Grid de información */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div>
-                  <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
-                    Información de HANA
-                  </h4>
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Factura (FolioNum)</p>
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Factura</p>
+                      <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
                         {bultoInfo.factura}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Cantidad de Bultos</p>
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {bultoInfo.cantidadBultos}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Fecha Documento</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Fecha Documento</p>
                       <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                         {new Date(bultoInfo.fechaDocumento).toLocaleDateString('es-CL')}
                       </p>
@@ -266,18 +271,15 @@ function GestionBultos({ onBack, codigoBultoInicial }) {
                 </div>
 
                 <div>
-                  <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
-                    Orden de Venta
-                  </h4>
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">OV (Orden de Venta)</p>
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">N° OV</p>
+                      <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
                         {bultoInfo.ov}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Fecha OV</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Fecha OV</p>
                       <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                         {new Date(bultoInfo.fechaOV).toLocaleDateString('es-CL')}
                       </p>
@@ -286,12 +288,9 @@ function GestionBultos({ onBack, codigoBultoInicial }) {
                 </div>
 
                 <div>
-                  <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
-                    Estado en Histórico
-                  </h4>
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Bultos Ingresados</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Bultos Ingresados</p>
                       <p className="text-lg font-bold text-primary-600 dark:text-primary-400">
                         {(() => {
                           const ingresados = [bultoInfo.codigo, ...otrosBultos.map(b => b.codigo)].filter(
@@ -303,7 +302,7 @@ function GestionBultos({ onBack, codigoBultoInicial }) {
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">En Factura</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Bultos en Factura</p>
                       <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                         {bultoInfo.totalEnFactura} bultos
                       </p>
