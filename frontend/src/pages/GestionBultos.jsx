@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 function GestionBultos({ onBack }) {
   const [codigoBulto, setCodigoBulto] = useState('');
   const [bultoInfo, setBultoInfo] = useState(null);
+  const [otrosBultos, setOtrosBultos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -12,6 +13,7 @@ function GestionBultos({ onBack }) {
     setError('');
     setSuccess('');
     setBultoInfo(null);
+    setOtrosBultos([]);
 
     if (!codigoBulto.trim()) {
       setError('Por favor ingresa un código de bulto');
@@ -21,30 +23,31 @@ function GestionBultos({ onBack }) {
     setLoading(true);
 
     try {
-      // Simulamos una búsqueda de bulto
-      // TODO: Conectar con Blueyonder/Haana/SAP
-      const mockBultoInfo = {
-        codigo: codigoBulto,
-        descripcion: 'Bulto de ejemplo',
-        peso: '25.5 kg',
-        origen: 'Centro Distribución A',
-        destino: 'Centro Distribución B',
-        estado: 'En tránsito',
-        fechaCreacion: new Date().toLocaleDateString(),
-        cliente: 'Cliente XYZ',
-        referencia: 'REF-' + codigoBulto,
-        estadoDetalle: [
-          { fecha: '2026-02-25 10:30', evento: 'Escaneado en origen' },
-          { fecha: '2026-02-25 14:15', evento: 'En tránsito' },
-        ],
-      };
+      const response = await fetch(`http://localhost:5000/api/bultos/${codigoBulto.trim()}`);
+      
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Bulto no encontrado');
+      }
 
-      setTimeout(() => {
-        setBultoInfo(mockBultoInfo);
-        setLoading(false);
-      }, 1000);
+      const data = await response.json();
+      
+      setBultoInfo({
+        codigo: data.bulto.codigo,
+        factura: data.bulto.factura,
+        cantidadBultos: data.bulto.cantidadBultos,
+        fechaDocumento: data.bulto.fechaDocumento,
+        fechaOV: data.bulto.fechaOV,
+        ov: data.bulto.ov,
+      });
+
+      if (data.otrosBultos && data.otrosBultos.length > 0) {
+        setOtrosBultos(data.otrosBultos);
+      }
+
+      setLoading(false);
     } catch (err) {
-      setError('Error al buscar bulto');
+      setError(err.message || 'Error al buscar bulto');
       setLoading(false);
     }
   };
@@ -57,6 +60,7 @@ function GestionBultos({ onBack }) {
     setTimeout(() => {
       setCodigoBulto('');
       setBultoInfo(null);
+      setOtrosBultos([]);
       setSuccess('');
     }, 2000);
   };
@@ -76,7 +80,7 @@ function GestionBultos({ onBack }) {
             <div>
               <h1 className="section-title mb-0">Gestión de Bultos</h1>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Escanea o ingresa el código del bulto
+                Escanea o ingresa el código del bulto para obtener información de HANA
               </p>
             </div>
           </div>
@@ -132,11 +136,11 @@ function GestionBultos({ onBack }) {
                     {bultoInfo.codigo}
                   </h2>
                   <p className="text-gray-600 dark:text-gray-400">
-                    {bultoInfo.descripcion}
+                    Factura: {bultoInfo.factura}
                   </p>
                 </div>
-                <span className={`badge badge-${bultoInfo.estado === 'En tránsito' ? 'warning' : 'success'}`}>
-                  {bultoInfo.estado}
+                <span className="badge badge-success">
+                  Encontrado en HANA
                 </span>
               </div>
 
@@ -144,25 +148,25 @@ function GestionBultos({ onBack }) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
                   <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
-                    Información General
+                    Información de HANA
                   </h4>
                   <div className="space-y-3">
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Cliente</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Factura (FolioNum)</p>
                       <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {bultoInfo.cliente}
+                        {bultoInfo.factura}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Referencia</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Cantidad de Bultos</p>
                       <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {bultoInfo.referencia}
+                        {bultoInfo.cantidadBultos}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Peso</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Fecha Documento</p>
                       <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {bultoInfo.peso}
+                        {new Date(bultoInfo.fechaDocumento).toLocaleDateString('es-CL')}
                       </p>
                     </div>
                   </div>
@@ -170,57 +174,53 @@ function GestionBultos({ onBack }) {
 
                 <div>
                   <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
-                    Ubicación
+                    Orden de Venta
                   </h4>
                   <div className="space-y-3">
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Origen</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">OV (Orden de Venta)</p>
                       <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {bultoInfo.origen}
+                        {bultoInfo.ov}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Destino</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Fecha OV</p>
                       <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {bultoInfo.destino}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Fecha Creación</p>
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {bultoInfo.fechaCreacion}
+                        {new Date(bultoInfo.fechaOV).toLocaleDateString('es-CL')}
                       </p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Timeline de estados */}
-              <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                  Historial de Eventos
-                </h4>
-                <div className="space-y-4">
-                  {bultoInfo.estadoDetalle.map((evento, idx) => (
-                    <div key={idx} className="flex gap-4">
-                      <div className="flex flex-col items-center">
-                        <div className="w-2 h-2 bg-primary-500 rounded-full"></div>
-                        {idx < bultoInfo.estadoDetalle.length - 1 && (
-                          <div className="w-0.5 h-8 bg-gray-300 dark:bg-gray-600 mt-2"></div>
-                        )}
-                      </div>
-                      <div className="pb-4">
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {evento.fecha}
-                        </p>
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {evento.evento}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+              {/* Otros bultos en la factura */}
+              {otrosBultos.length > 0 && (
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                    Otros Bultos en Factura {bultoInfo.factura}
+                  </h4>
+                  <div className="overflow-x-auto">
+                    <table className="table-striped w-full text-sm">
+                      <thead>
+                        <tr>
+                          <th>Código</th>
+                          <th>Cantidad</th>
+                          <th>Factura</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {otrosBultos.map((bulto, idx) => (
+                          <tr key={idx}>
+                            <td className="font-medium">{bulto.codigo}</td>
+                            <td>{bulto.cantidadBultos}</td>
+                            <td>{bulto.factura}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Botones de acción */}
@@ -235,6 +235,7 @@ function GestionBultos({ onBack }) {
                 onClick={() => {
                   setCodigoBulto('');
                   setBultoInfo(null);
+                  setOtrosBultos([]);
                 }}
                 className="btn-outline flex-1"
               >
@@ -257,7 +258,7 @@ function GestionBultos({ onBack }) {
               📦 Ingresa un código de bulto para comenzar
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Puedes escanear o escribir el código manualmente
+              Los datos se cargarán directamente desde HANA
             </p>
           </div>
         )}

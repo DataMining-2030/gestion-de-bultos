@@ -1,54 +1,81 @@
 /**
  * Servicio para conectar a SAP HANA
- * TODO: Instalar hana con: npm install @sap/hana-client
+ * Tabla: CMK_DOC_LOTE
+ * Campos: Bultos, CANT_BULTOS, DocDate, FECHA_OV, FolioNum, OV
  */
 
-const { obtenerCredencial } = require('../config/credenciales.config');
+const hana = require('@sap/hana-client');
 
 /**
- * Conectar a SAP HANA
- * @returns {Promise<Connection>} Conexión a HANA
+ * Crear conexión a SAP HANA
  */
 async function conectarHANA() {
-  try {
-    // TODO: Descomentar cuando se instale hana-client
-    /*
-    const hana = require('@sap/hana-client');
-    
+  return new Promise((resolve, reject) => {
     const connOptions = {
-      serverNode: obtenerCredencial('HANNA', 'address') + ':' + obtenerCredencial('HANNA', 'port'),
-      uid: obtenerCredencial('HANNA', 'user'),
-      pwd: obtenerCredencial('HANNA', 'password'),
+      serverNode: process.env.HANNA_ADDRESS + ':' + process.env.HANNA_PORT,
+      uid: process.env.HANNA_USER,
+      pwd: process.env.HANNA_PASSWORD,
+      useTLS: false,
     };
 
-    const connection = await hana.createConnection().connect(connOptions);
-    console.log('✅ Conectado a SAP HANA');
-    return connection;
-    */
-
-    console.log('⚠️ HANA no está instalado aún. Usar: npm install @sap/hana-client');
-    throw new Error('HANA client no instalado');
-  } catch (error) {
-    console.error('❌ Error al conectar a HANA:', error.message);
-    throw error;
-  }
+    const connection = hana.createConnection();
+    
+    connection.connect(connOptions, (err) => {
+      if (err) {
+        console.error('❌ Error conectando a HANA:', err.message);
+        reject(err);
+      } else {
+        console.log('✅ Conectado a SAP HANA');
+        resolve(connection);
+      }
+    });
+  });
 }
 
 /**
- * Obtener información de un bulto desde HANA
- * @param {string} codigoBulto - Código del bulto
- * @returns {Promise<Object>} Datos del bulto
+ * Obtener información de un bulto desde HANA (CMK_DOC_LOTE)
+ * @param {string} codigoBulto - Código del bulto a buscar
+ * @returns {Promise<Object>} Datos del bulto y otros bultos en esa factura
  */
 async function obtenerBultoHANA(codigoBulto) {
+  let connection;
   try {
-    // TODO: Implementar query a HANA
-    // const connection = await conectarHANA();
-    // const query = `SELECT * FROM BULTOS WHERE CODIGO = '${codigoBulto}'`;
-    // const result = await connection.exec(query);
-    // return result;
+    connection = await conectarHANA();
 
-    console.log('Query HANA para bulto:', codigoBulto);
-    throw new Error('HANA no configurado aún');
+    return new Promise((resolve, reject) => {
+      // Query para obtener el bulto y todos los bultos asociados a esa factura
+      const query = `
+        SELECT 
+          "Bultos",
+          "CANT_BULTOS",
+          "DocDate",
+          "FECHA_OV",
+          "FolioNum",
+          "OV"
+        FROM "BI_CMK"."CMK_DOC_LOTE"
+        WHERE "Bultos" LIKE '%${codigoBulto}%'
+        OR "FolioNum" = (
+          SELECT "FolioNum" 
+          FROM "BI_CMK"."CMK_DOC_LOTE"
+          WHERE "Bultos" LIKE '%${codigoBulto}%'
+          LIMIT 1
+        )
+      `;
+
+      connection.exec(query, (err, result) => {
+        connection.close((closeErr) => {
+          if (closeErr) console.error('Error cerrando conexión:', closeErr);
+        });
+
+        if (err) {
+          console.error('❌ Error en query HANA:', err.message);
+          reject(err);
+        } else {
+          console.log(`📦 Bultos encontrados para: ${codigoBulto}`);
+          resolve(result);
+        }
+      });
+    });
   } catch (error) {
     console.error('Error al obtener bulto desde HANA:', error.message);
     throw error;
@@ -57,15 +84,38 @@ async function obtenerBultoHANA(codigoBulto) {
 
 /**
  * Obtener información de SAP desde HANA
- * @param {string} documento - Documento SAP
- * @returns {Promise<Object>} Datos de SAP
+ * @param {string} documento - Número de documento OV
+ * @returns {Promise<Object>} Datos de SAP asociados
  */
 async function obtenerSAPdesdeHANA(documento) {
+  let connection;
   try {
-    // TODO: Implementar query a HANA para obtener datos de SAP
-    // SELECT MANDT, EBELN, EBELP, LFIMG FROM EKPO WHERE EBELN = '${documento}'
-    console.log('Query SAP para documento:', documento);
-    throw new Error('HANA no configurado aún');
+    connection = await conectarHANA();
+
+    return new Promise((resolve, reject) => {
+      const query = `
+        SELECT 
+          "OV",
+          "FECHA_OV",
+          "FolioNum",
+          "CANT_BULTOS"
+        FROM "BI_CMK"."CMK_DOC_LOTE"
+        WHERE "OV" = '${documento}'
+      `;
+
+      connection.exec(query, (err, result) => {
+        connection.close((closeErr) => {
+          if (closeErr) console.error('Error cerrando conexión:', closeErr);
+        });
+
+        if (err) {
+          console.error('❌ Error en query SAP:', err.message);
+          reject(err);
+        } else {
+          resolve(result);
+        }
+      });
+    });
   } catch (error) {
     console.error('Error al obtener SAP desde HANA:', error.message);
     throw error;
