@@ -47,7 +47,16 @@ function Home({ onLogout }) {
 
   // Renderizar pantalla de Histórico
   if (currentPage === 'historico') {
-    return <Historico onBack={() => setCurrentPage('home')} />;
+    return (
+      <Historico 
+        onBack={() => setCurrentPage('home')}
+        onBultoSelected={(codigo) => {
+          // Ir a gestión de bultos con el código pre-cargado
+          setCurrentPage('bultos-desde-historico');
+          // Pasar el código como parámetro (lo haremos en el siguiente paso)
+        }}
+      />
+    );
   }
 
   // Renderizar pantalla de Dashboard

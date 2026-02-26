@@ -29,7 +29,7 @@ async function inicializarTablaHistorico() {
     const connection = await pool.getConnection();
     
     const query = `
-      CREATE TABLE IF NOT EXISTS HISTORICO_BULTOS (
+      CREATE TABLE IF NOT EXISTS cmk_HISTORICO_BULTOS (
         id INT AUTO_INCREMENT PRIMARY KEY,
         codigo_bulto VARCHAR(50) NOT NULL UNIQUE,
         factura VARCHAR(50),
@@ -45,10 +45,20 @@ async function inicializarTablaHistorico() {
     `;
     
     await connection.query(query);
+    
+    // Limpiar datos de prueba si existen
+    try {
+      await connection.query('DELETE FROM cmk_HISTORICO_BULTOS');
+      console.log('✅ Datos de prueba eliminados');
+    } catch (e) {
+      // Ignorar si falla
+    }
+    
     connection.release();
-    console.log('✅ Tabla HISTORICO_BULTOS verificada/creada');
+    console.log('✅ Tabla cmk_HISTORICO_BULTOS verificada/creada');
   } catch (error) {
     console.error('❌ Error al inicializar tabla:', error.message);
+    console.error('   Detalles:', error);
   }
 }
 
@@ -164,7 +174,7 @@ app.get('/api/historico/verificar/:codigo', async (req, res) => {
     const connection = await pool.getConnection();
 
     const [rows] = await connection.query(
-      'SELECT * FROM HISTORICO_BULTOS WHERE codigo_bulto = ?',
+      'SELECT * FROM cmk_HISTORICO_BULTOS WHERE codigo_bulto = ?',
       [codigo]
     );
 
@@ -202,7 +212,7 @@ app.post('/api/historico/guardar', async (req, res) => {
 
     // Verificar si ya existe
     const [existing] = await connection.query(
-      'SELECT id FROM HISTORICO_BULTOS WHERE codigo_bulto = ?',
+      'SELECT id FROM cmk_HISTORICO_BULTOS WHERE codigo_bulto = ?',
       [codigo_bulto]
     );
 
@@ -216,7 +226,7 @@ app.post('/api/historico/guardar', async (req, res) => {
 
     // Insertar nuevo bulto
     const [result] = await connection.query(
-      `INSERT INTO HISTORICO_BULTOS 
+      `INSERT INTO cmk_HISTORICO_BULTOS 
        (codigo_bulto, factura, ov, fecha_documento, fecha_ov) 
        VALUES (?, ?, ?, ?, ?)`,
       [codigo_bulto, factura, ov, fecha_documento, fecha_ov]
@@ -239,6 +249,27 @@ app.post('/api/historico/guardar', async (req, res) => {
   }
 });
 
+// Ruta para obtener todos los bultos del histórico
+app.get('/api/historico/listar', async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+
+    const [rows] = await connection.query(
+      `SELECT * FROM cmk_HISTORICO_BULTOS ORDER BY fecha_ingreso DESC`
+    );
+
+    connection.release();
+
+    res.status(200).json(rows);
+  } catch (error) {
+    console.error('❌ Error al obtener histórico:', error.message);
+    res.status(500).json({ 
+      error: 'Error al obtener histórico',
+      detalle: error.message
+    });
+  }
+});
+
 // Ruta para verificar múltiples bultos
 app.post('/api/historico/verificar-multiples', async (req, res) => {
   try {
@@ -253,7 +284,7 @@ app.post('/api/historico/verificar-multiples', async (req, res) => {
     // Crear placeholders para la query
     const placeholders = codigos.map(() => '?').join(',');
     const [rows] = await connection.query(
-      `SELECT codigo_bulto FROM HISTORICO_BULTOS WHERE codigo_bulto IN (${placeholders})`,
+      `SELECT codigo_bulto FROM cmk_HISTORICO_BULTOS WHERE codigo_bulto IN (${placeholders})`,
       codigos
     );
 
