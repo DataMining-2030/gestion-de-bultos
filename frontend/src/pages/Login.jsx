@@ -44,10 +44,10 @@ function Login({ onLoginSuccess }) {
 
       if (response.ok) {
         setSuccess('¡Login exitoso! Redirigiendo...');
-        // Llamar callback de login exitoso
+        // Llamar callback de login exitoso con datos del usuario
         setTimeout(() => {
           if (onLoginSuccess) {
-            onLoginSuccess();
+            onLoginSuccess(data.usuario);
           }
         }, 1000);
         setUsuario('');
