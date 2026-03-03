@@ -1,8 +1,7 @@
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
 const mysql = require('mysql2/promise');
-const { validarCredenciales } = require('./config/credenciales.config');
+const { validarCredenciales, obtenerCredencial } = require('./config/credenciales.config');
 const { obtenerBultoHANA, obtenerBultosPorOVHANA, obtenerTrazabilidadOVHANA } = require('./services/hanaService');
 const { obtenerBultosPorOVDesdeBYProduccion, obtenerBultosPorOV } = require('./services/byProduccionService');
 const { obtenerUnidadesNetasPorBU } = require('./services/bultosNetoService');
@@ -15,13 +14,51 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+function normalizarTexto(value) {
+  return String(value ?? '').trim().toLowerCase();
+}
+
+function esOVCerrada(ovInfo) {
+  const v = normalizarTexto(ovInfo?.['Estado OV'] ?? ovInfo?.ov_estado ?? '');
+  if (!v) return false;
+  return v === 'c' || v === 'cerrada' || v.startsWith('cerrad');
+}
+
+function tieneErrorInventario(wmsInfo) {
+  if (!wmsInfo) return false;
+  const txt = `${wmsInfo.mensaje_error || ''} ${wmsInfo.tipo_error || ''}`.toLowerCase();
+  return (
+    txt.includes('negative inventory') ||
+    txt.includes('cantidad supera la ov') ||
+    txt.includes('insufficient quantity') ||
+    // equivalentes en español (por si llega mapeado)
+    txt.includes('diferencia de inventario') ||
+    txt.includes('sobreasignación') ||
+    txt.includes('sobreasignacion') ||
+    txt.includes('inventario insuficiente')
+  );
+}
+
+function determinarAccionRecomendada({ ovInfo, factura, wmsInfo }) {
+  // Reglas (orden de prioridad) según feedback usuario:
+  // 1) OV cerrada -> Apartar pallet a recepcion
+  // 2) Tiene factura -> Evaluar Despacho
+  // 3) Error inventario -> Apartar pallet para revision de inventario
+  // 4) Otro -> Accion no especificada
+
+  if (esOVCerrada(ovInfo)) return 'Apartar pallet a recepcion';
+  if (factura) return 'Evaluar Despacho';
+  if (tieneErrorInventario(wmsInfo)) return 'Apartar pallet para revision de inventario';
+  return 'Accion no especificada';
+}
+
 // Pool de conexiones MySQL
 const pool = mysql.createPool({
-  host: process.env.MYSQL_HOST || 'localhost',
-  user: process.env.MYSQL_USER || 'root',
-  password: process.env.MYSQL_PASSWORD || 'password',
-  database: process.env.MYSQL_DATABASE || 'gestion_bultos',
-  port: process.env.MYSQL_PORT || 3306,
+  host: obtenerCredencial('MYSQL', 'host'),
+  user: obtenerCredencial('MYSQL', 'user'),
+  password: obtenerCredencial('MYSQL', 'password'),
+  database: obtenerCredencial('MYSQL', 'database'),
+  port: obtenerCredencial('MYSQL', 'port'),
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
@@ -51,9 +88,12 @@ async function inicializarTablaHistorico() {
         ov_fecha DATETIME,
         wms_estado VARCHAR(20),
         wms_codigo_error VARCHAR(50),
+        wms_tipo_error VARCHAR(100),
         wms_mensaje_error TEXT,
+        wms_mensaje_usuario TEXT,
         wms_fecha DATETIME,
         wms_trn_id VARCHAR(50),
+        accion_recomendada VARCHAR(150),
         INDEX idx_codigo (codigo_bulto),
         INDEX idx_factura (factura),
         INDEX idx_fecha_ingreso (fecha_ingreso)
@@ -96,9 +136,12 @@ async function inicializarTablaHistorico() {
     await addColumnIfMissing('ov_fecha', 'DATETIME NULL');
     await addColumnIfMissing('wms_estado', 'VARCHAR(20) NULL');
     await addColumnIfMissing('wms_codigo_error', 'VARCHAR(50) NULL');
+    await addColumnIfMissing('wms_tipo_error', 'VARCHAR(100) NULL');
     await addColumnIfMissing('wms_mensaje_error', 'TEXT NULL');
+    await addColumnIfMissing('wms_mensaje_usuario', 'TEXT NULL');
     await addColumnIfMissing('wms_fecha', 'DATETIME NULL');
     await addColumnIfMissing('wms_trn_id', 'VARCHAR(50) NULL');
+    await addColumnIfMissing('accion_recomendada', 'VARCHAR(150) NULL');
 
     // Dejar solo UNA fecha OV consolidada (ov_fecha). Intentar eliminar fecha_ov si existe.
     const [fechaOvCol] = await connection.query(
@@ -195,6 +238,7 @@ async function inicializarTablaExportaciones() {
         filtro_factura VARCHAR(100),
         filtro_cliente VARCHAR(255),
         filtro_estratificacion VARCHAR(255),
+        filtro_accion VARCHAR(255),
         filtro_fecha_ingreso VARCHAR(20),
         filtros_json LONGTEXT,
         INDEX idx_usuario (usuario),
@@ -204,6 +248,26 @@ async function inicializarTablaExportaciones() {
     `;
 
     await connection.query(query);
+
+    // Asegurar columna nueva si la tabla ya existía
+    const [dbRow] = await connection.query('SELECT DATABASE() AS db');
+    const dbName = (dbRow && dbRow[0] && dbRow[0].db) || process.env.MYSQL_DATABASE;
+    const [col] = await connection.query(
+      `
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = ?
+          AND table_name = 'cmk_bultos_exportado'
+          AND column_name = 'filtro_accion'
+        LIMIT 1
+      `,
+      [dbName]
+    );
+    if (!col || col.length === 0) {
+      await connection.query('ALTER TABLE cmk_bultos_exportado ADD COLUMN filtro_accion VARCHAR(255) NULL');
+      console.log('✅ Columna agregada en exportaciones: filtro_accion');
+    }
+
     connection.release();
     console.log('✅ Tabla cmk_bultos_exportado verificada/creada');
   } catch (error) {
@@ -264,6 +328,7 @@ app.post('/api/exportaciones/registrar', async (req, res) => {
     const filtroFactura = f.factura ? String(f.factura).trim() : null;
     const filtroCliente = f.cliente ? String(f.cliente).trim() : null;
     const filtroEstrat = f.estratificacion ? String(f.estratificacion).trim() : null;
+    const filtroAccion = f.accion ? String(f.accion).trim() : null;
     const filtroFechaIngreso = f.fecha_ingreso ? String(f.fecha_ingreso).trim() : null;
     const filtrosJson = JSON.stringify(f);
 
@@ -281,10 +346,11 @@ app.post('/api/exportaciones/registrar', async (req, res) => {
           filtro_factura,
           filtro_cliente,
           filtro_estratificacion,
+          filtro_accion,
           filtro_fecha_ingreso,
           filtros_json
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         usuarioStr,
@@ -297,6 +363,7 @@ app.post('/api/exportaciones/registrar', async (req, res) => {
         filtroFactura,
         filtroCliente,
         filtroEstrat,
+        filtroAccion,
         filtroFechaIngreso,
         filtrosJson,
       ]
@@ -627,16 +694,24 @@ app.get('/api/bultos/:codigo', async (req, res) => {
     // 6) Integración WMS->SAP (BY SQL Server): último estado/mensaje por BU
     let wmsIntegracion = null;
     try {
-      wmsIntegracion = await obtenerUltimaIntegracionSalidaPorBU(codigoBulto, { daysBack: 14 });
+      wmsIntegracion = await obtenerUltimaIntegracionSalidaPorBU(codigoBulto, { daysBack: 60 });
     } catch (e) {
+      console.warn('⚠️ No se pudo obtener integración WMS para BU:', codigoBulto, '-', e.message);
       wmsIntegracion = null;
     }
+
+    const accionRecomendada = determinarAccionRecomendada({
+      ovInfo,
+      factura: buscado?.factura || null,
+      wmsInfo: wmsIntegracion,
+    });
 
     res.status(200).json({
       ov,
       fuenteOV,
       ovInfo,
       wmsIntegracion,
+      accionRecomendada,
       bulto: buscado,
       grupos,
       totalBultosOV: todos.length,
@@ -685,7 +760,7 @@ app.get('/api/historico/verificar/:codigo', async (req, res) => {
 // Ruta para guardar bulto en histórico
 app.post('/api/historico/guardar', async (req, res) => {
   try {
-    const { codigo_bulto, factura, ov, fecha_documento, usuario, ovInfo, wmsInfo } = req.body;
+    const { codigo_bulto, factura, ov, fecha_documento, usuario, ovInfo, wmsInfo, accionRecomendada } = req.body;
 
     if (!codigo_bulto) {
       return res.status(400).json({ error: 'Código de bulto requerido' });
@@ -726,7 +801,9 @@ app.post('/api/historico/guardar', async (req, res) => {
     // WMS/Integración (opcional)
     const wms_estado = wmsInfo?.estado ?? null;
     const wms_codigo_error = wmsInfo?.codigo_error ?? null;
+    const wms_tipo_error = wmsInfo?.tipo_error ?? null;
     const wms_mensaje_error = wmsInfo?.mensaje_error ?? null;
+    const wms_mensaje_usuario = wmsInfo?.mensaje_usuario ?? null;
     const wms_trn_id = wmsInfo?.trn_id ?? null;
     let wms_fecha = null;
     if (wmsInfo?.fecha) {
@@ -734,13 +811,18 @@ app.post('/api/historico/guardar', async (req, res) => {
       if (!Number.isNaN(d.getTime())) wms_fecha = d;
     }
 
+    const accion =
+      (accionRecomendada && String(accionRecomendada).trim()) ||
+      determinarAccionRecomendada({ ovInfo, factura, wmsInfo });
+
     // Insertar nuevo bulto
     const [result] = await connection.query(
       `INSERT INTO cmk_HISTORICO_BULTOS 
        (codigo_bulto, factura, ov, fecha_documento, usuario,
         ov_comuna, ov_region, ov_estado, ov_estratificacion, ov_direccion, ov_ruta, ov_cliente, ov_fecha,
-        wms_estado, wms_codigo_error, wms_mensaje_error, wms_fecha, wms_trn_id) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        wms_estado, wms_codigo_error, wms_tipo_error, wms_mensaje_error, wms_mensaje_usuario, wms_fecha, wms_trn_id,
+        accion_recomendada) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         codigo_bulto,
         factura,
@@ -757,9 +839,12 @@ app.post('/api/historico/guardar', async (req, res) => {
         ov_fecha,
         wms_estado,
         wms_codigo_error,
+        wms_tipo_error,
         wms_mensaje_error,
+        wms_mensaje_usuario,
         wms_fecha,
         wms_trn_id,
+        accion,
       ]
     );
 

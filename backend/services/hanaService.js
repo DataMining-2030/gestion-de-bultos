@@ -5,6 +5,7 @@
  */
 
 const hana = require('@sap/hana-client');
+const { obtenerCredencial } = require('../config/credenciales.config');
 
 function combinarFechaHora(fecha, hora) {
   if (!fecha) return null;
@@ -68,9 +69,9 @@ function normalizarEstadoOV(value) {
 async function conectarHANA() {
   return new Promise((resolve, reject) => {
     const connOptions = {
-      serverNode: process.env.HANNA_ADDRESS + ':' + process.env.HANNA_PORT,
-      uid: process.env.HANNA_USER,
-      pwd: process.env.HANNA_PASSWORD,
+      serverNode: `${obtenerCredencial('HANNA', 'address')}:${obtenerCredencial('HANNA', 'port')}`,
+      uid: obtenerCredencial('HANNA', 'user'),
+      pwd: obtenerCredencial('HANNA', 'password'),
       useTLS: false,
     };
 

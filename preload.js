@@ -8,4 +8,5 @@ contextBridge.exposeInMainWorld('electron', {
    * @returns {Promise<{ cancelled: boolean, filePath?: string, savedFilename?: string }>}
    */
   saveXlsx: (payload) => ipcRenderer.invoke('save-xlsx', payload),
+  openLogsFolder: () => ipcRenderer.invoke('open-logs-folder'),
 });

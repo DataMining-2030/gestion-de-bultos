@@ -42,6 +42,63 @@ function normalizarBU(bu) {
   return String(bu ?? '').trim().toUpperCase();
 }
 
+function limpiarMensajeError(value) {
+  const s = String(value ?? '').trim();
+  if (!s) return null;
+
+  // Quitar sufijos técnicos tipo: [DocumentLines.BaseEntry][line: 1]
+  const sinSufijo = s.replace(/\s*\[DocumentLines\.BaseEntry\]\[line:\s*\d+\]\s*$/i, '').trim();
+  return sinSufijo || null;
+}
+
+function obtenerTipoErrorDesdeTexto(respuesta) {
+  const r = String(respuesta ?? '').trim();
+  if (!r) return null;
+
+  const includes = (needle) => r.toLowerCase().includes(String(needle).toLowerCase());
+
+  if (includes('base documents has already been closed')) return 'documento base cerrado';
+  if (includes('negative inventory')) return 'diferencia de inventario';
+  if (includes('target item number does not match')) return 'item no cuadra en el documento base';
+  if (includes('invalid record offset')) return 'error de formato';
+  if (includes('is inactive')) return 'cliente inactivo';
+  if (includes('internal error')) return 'error interno';
+  if (includes('cannot be copied partially')) return 'no copia parcial';
+  if (includes('cantidad supera la ov')) return 'sobreasignación';
+  if (includes('proxy server could not handle')) return 'conexión';
+  if (includes('read timed out')) return 'conexión';
+  if (includes('insufficient quantity')) return 'inventario insuficiente';
+  return 'Otro / Sin Error';
+}
+
+function capitalizarPrimera(s) {
+  const str = String(s ?? '').trim();
+  if (!str) return str;
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function obtenerMensajeUsuario({ tipoError, mensajeRaw }) {
+  const tipo = String(tipoError ?? '').trim();
+  const raw = String(mensajeRaw ?? '').trim();
+
+  if (!tipo || tipo === 'Otro / Sin Error') return raw || null;
+
+  // Cuando existe detalle con SKU/LOTE, lo incorporamos en el mensaje en español
+  if (tipo === 'inventario insuficiente') {
+    const itemMatch = raw.match(/item\s+([A-Z0-9_-]+)/i);
+    const batchMatch = raw.match(/batch\s+([A-Z0-9_-]+)/i);
+    const item = itemMatch ? itemMatch[1] : null;
+    const batch = batchMatch ? batchMatch[1] : null;
+
+    if (item && batch) return `Inventario insuficiente para item ${item} (lote ${batch})`;
+    if (item) return `Inventario insuficiente para item ${item}`;
+    return 'Inventario insuficiente';
+  }
+
+  // Para el resto, usamos el tipo en español como mensaje principal
+  return capitalizarPrimera(tipo);
+}
+
 /**
  * Obtiene la última integración (Salida Mercaderia) asociada a un BU.
  * Extrae el mensaje de error desde `respuesta` si existe.
@@ -51,13 +108,13 @@ function normalizarBU(bu) {
  *
  * @param {string} bu
  * @param {{ daysBack?: number }} [opts]
- * @returns {Promise<null | { bu: string, fecha: any, estado: string|null, trn_id: any, baseEntry: any, mensaje_error: string|null, codigo_error: string|null }>}
+ * @returns {Promise<null | { bu: string, fecha: any, estado: string|null, trn_id: any, mensaje_error: string|null, mensaje_usuario: string|null, codigo_error: string|null, tipo_error: string|null }>}
  */
 async function obtenerUltimaIntegracionSalidaPorBU(bu, opts = {}) {
   const codigoBU = normalizarBU(bu);
   if (!codigoBU) return null;
 
-  const daysBack = Number.isFinite(Number(opts.daysBack)) ? Number(opts.daysBack) : 14;
+  const daysBack = Number.isFinite(Number(opts.daysBack)) ? Number(opts.daysBack) : 60;
 
   const pool = await getPool();
   const request = pool.request();
@@ -72,14 +129,16 @@ async function obtenerUltimaIntegracionSalidaPorBU(bu, opts = {}) {
         v.[interface],
         v.estado,
         v.trn_id,
-        v.BaseEntry,
         CASE
           WHEN ISJSON(v.envio) = 1 THEN JSON_VALUE(v.envio, '$.U_WMS_Bultos')
+          WHEN CHARINDEX('{', v.envio) > 0
+            AND ISJSON(SUBSTRING(v.envio, CHARINDEX('{', v.envio), LEN(v.envio))) = 1
+            THEN JSON_VALUE(SUBSTRING(v.envio, CHARINDEX('{', v.envio), LEN(v.envio)), '$.U_WMS_Bultos')
           ELSE NULL
         END AS u_wms_bultos,
         v.respuesta
       FROM dbo.v_integraciones v
-      WHERE v.[interface] = 'Salida Mercaderia'
+      WHERE LTRIM(RTRIM(v.[interface])) = 'Salida Mercaderia'
         AND v.fecha >= DATEADD(day, -@daysBack, GETDATE())
     ),
     exploded AS (
@@ -87,8 +146,12 @@ async function obtenerUltimaIntegracionSalidaPorBU(bu, opts = {}) {
         s.fecha,
         s.estado,
         s.trn_id,
-        s.BaseEntry,
-        UPPER(LTRIM(RTRIM(x.value))) AS bu,
+        -- U_WMS_Bultos viene como "BU1,BU2" y a veces con comillas extra: ""BU1,BU2""
+        UPPER(
+          LTRIM(RTRIM(
+            REPLACE(REPLACE(x.value, '"', ''), '''', '')
+          ))
+        ) AS bu,
         s.respuesta
       FROM src s
       CROSS APPLY STRING_SPLIT(REPLACE(s.u_wms_bultos, ' ', ''), ',') x
@@ -100,7 +163,7 @@ async function obtenerUltimaIntegracionSalidaPorBU(bu, opts = {}) {
         e.fecha,
         e.estado,
         e.trn_id,
-        e.BaseEntry,
+        e.respuesta,
         CASE
           WHEN e.respuesta IS NULL THEN NULL
           WHEN ISJSON(e.respuesta) = 1 THEN JSON_VALUE(e.respuesta, '$.error.message')
@@ -124,7 +187,7 @@ async function obtenerUltimaIntegracionSalidaPorBU(bu, opts = {}) {
       fecha,
       estado,
       trn_id,
-      BaseEntry AS baseEntry,
+      respuesta,
       mensaje_error,
       codigo_error
     FROM parsed
@@ -136,14 +199,21 @@ async function obtenerUltimaIntegracionSalidaPorBU(bu, opts = {}) {
   const row = result && result.recordset && result.recordset[0] ? result.recordset[0] : null;
   if (!row) return null;
 
+  const mensaje = limpiarMensajeError(row.mensaje_error);
+  const tipo = obtenerTipoErrorDesdeTexto(row.respuesta || mensaje || '');
+  const mensajeUsuario = obtenerMensajeUsuario({ tipoError: tipo, mensajeRaw: mensaje || row.respuesta || '' });
+
   return {
     bu: row.bu,
     fecha: row.fecha,
     estado: row.estado ?? null,
     trn_id: row.trn_id ?? null,
-    baseEntry: row.baseEntry ?? null,
-    mensaje_error: row.mensaje_error ?? null,
+    // Mantener el detalle original (aquí suele venir SKU/LOTE). El motivo en español va en `tipo_error`.
+    mensaje_error: mensaje,
+    // Mensaje para UI (español; incluye SKU/LOTE si se logra extraer)
+    mensaje_usuario: mensajeUsuario,
     codigo_error: row.codigo_error ?? null,
+    tipo_error: tipo,
   };
 }
 

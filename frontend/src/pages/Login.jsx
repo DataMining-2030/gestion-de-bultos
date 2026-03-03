@@ -43,6 +43,8 @@ function Login({ onLoginSuccess }) {
     setLoading(true);
 
     try {
+      // Pequeño delay por si el backend aún está iniciando en el ejecutable
+      await new Promise((r) => setTimeout(r, 300));
       const response = await fetch('http://localhost:5000/api/login', {
         method: 'POST',
         headers: {
@@ -67,7 +69,8 @@ function Login({ onLoginSuccess }) {
         setError(data.mensaje || 'Error en el login. Intenta de nuevo.');
       }
     } catch (err) {
-      setError('Error al conectar con el servidor');
+      // Mensaje más útil para builds empaquetados
+      setError('No se pudo conectar con el servidor local (5000). Revisa los logs.');
       console.error('Error:', err);
     } finally {
       setLoading(false);
@@ -248,7 +251,20 @@ function Login({ onLoginSuccess }) {
             {/* Mensajes */}
             {error && (
               <div className="p-3 rounded-xl border border-red-200 bg-red-50">
-                <p className="text-sm text-red-700">{error}</p>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm text-red-700">{error}</p>
+                  {typeof window !== 'undefined' &&
+                    window.electron &&
+                    typeof window.electron.openLogsFolder === 'function' && (
+                      <button
+                        type="button"
+                        onClick={() => window.electron.openLogsFolder()}
+                        className="text-xs font-semibold text-red-700 hover:underline whitespace-nowrap"
+                      >
+                        Abrir logs
+                      </button>
+                    )}
+                </div>
               </div>
             )}
 

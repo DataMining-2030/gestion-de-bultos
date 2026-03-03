@@ -28,6 +28,7 @@ function Home({ onLogout, usuario }) {
       descripcion: 'Visualiza estadísticas y reportes',
       icono: '📊',
       color: 'success',
+      disabled: true,
     },
   ];
 
@@ -136,14 +137,34 @@ function Home({ onLogout, usuario }) {
             {menuOptions.map((option) => (
               <button
                 key={option.id}
-                onClick={() => setCurrentPage(option.id)}
-                className="card hover:shadow-lg hover:-translate-y-1 transition-all duration-300 text-left group cursor-pointer"
+                onClick={() => {
+                  if (option.disabled) return;
+                  setCurrentPage(option.id);
+                }}
+                disabled={option.disabled}
+                aria-disabled={option.disabled ? 'true' : 'false'}
+                className={`card transition-all duration-300 text-left group ${
+                  option.disabled
+                    ? 'opacity-60 cursor-not-allowed'
+                    : 'cursor-pointer hover:shadow-lg hover:-translate-y-1'
+                }`}
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="text-5xl">{option.icono}</div>
+                  {option.disabled && (
+                    <span className="badge bg-gray-100 text-gray-700 text-xs font-semibold">
+                      No disponible
+                    </span>
+                  )}
                 </div>
 
-                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+                <h3
+                  className={`text-xl font-bold text-gray-900 dark:text-gray-100 mb-2 transition-colors ${
+                    option.disabled
+                      ? ''
+                      : 'group-hover:text-primary-600 dark:group-hover:text-primary-400'
+                  }`}
+                >
                   {option.titulo}
                 </h3>
 
@@ -151,8 +172,16 @@ function Home({ onLogout, usuario }) {
                   {option.descripcion}
                 </p>
 
-                <div className="flex items-center text-primary-500 group-hover:translate-x-2 transition-transform">
-                  <span className="text-sm font-medium">Acceder</span>
+                <div
+                  className={`flex items-center transition-transform ${
+                    option.disabled
+                      ? 'text-gray-400'
+                      : 'text-primary-500 group-hover:translate-x-2'
+                  }`}
+                >
+                  <span className="text-sm font-medium">
+                    {option.disabled ? 'No disponible' : 'Acceder'}
+                  </span>
                   <svg
                     className="w-4 h-4 ml-2"
                     fill="none"

@@ -1,11 +1,35 @@
-const { app, BrowserWindow, Menu, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, dialog, shell } = require('electron');
 const isDev = require('electron-is-dev');
 const path = require('path');
 const fs = require('fs/promises');
+const fssync = require('fs');
 const { fork } = require('child_process');
 
 let mainWindow;
 let backendProc = null;
+let logsDir = null;
+let mainLogPath = null;
+let backendLogPath = null;
+
+async function ensureLogs() {
+  if (logsDir) return;
+  logsDir = path.join(app.getPath('userData'), 'logs');
+  await fs.mkdir(logsDir, { recursive: true });
+  mainLogPath = path.join(logsDir, 'main.log');
+  backendLogPath = path.join(logsDir, 'backend.log');
+}
+
+function ts() {
+  return new Date().toISOString();
+}
+
+function appendLog(filePath, line) {
+  try {
+    fssync.appendFileSync(filePath, `[${ts()}] ${line}\n`, { encoding: 'utf8' });
+  } catch (e) {
+    // ignore
+  }
+}
 
 ipcMain.handle('save-xlsx', async (_event, payload) => {
   try {
@@ -37,26 +61,66 @@ ipcMain.handle('save-xlsx', async (_event, payload) => {
   }
 });
 
+ipcMain.handle('open-logs-folder', async () => {
+  try {
+    await ensureLogs();
+    await shell.openPath(logsDir);
+    return { ok: true, path: logsDir };
+  } catch (e) {
+    return { ok: false };
+  }
+});
+
 function iniciarBackendProduccion() {
   if (isDev) return;
   if (backendProc) return;
 
   try {
     const backendEntry = path.join(__dirname, 'backend', 'index.js');
+    // Asegurar carpeta de logs antes de iniciar
+    try {
+      if (mainLogPath) appendLog(mainLogPath, `Iniciando backend: ${backendEntry}`);
+    } catch (e) {
+      // ignore
+    }
+
     backendProc = fork(backendEntry, [], {
       cwd: path.dirname(backendEntry),
       env: {
         ...process.env,
         NODE_ENV: process.env.NODE_ENV || 'production',
         PORT: process.env.PORT || '5000',
+        // Permitir resolver dependencias del backend desde extraResources
+        NODE_PATH: [
+          process.env.NODE_PATH,
+          path.join(process.resourcesPath, 'backend', 'node_modules'),
+        ]
+          .filter(Boolean)
+          .join(path.delimiter),
       },
-      stdio: 'ignore',
+      stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
     });
 
-    backendProc.on('exit', () => {
+    if (backendProc.stdout) {
+      backendProc.stdout.on('data', (buf) => {
+        if (backendLogPath) appendLog(backendLogPath, String(buf).trimEnd());
+      });
+    }
+    if (backendProc.stderr) {
+      backendProc.stderr.on('data', (buf) => {
+        if (backendLogPath) appendLog(backendLogPath, String(buf).trimEnd());
+      });
+    }
+
+    backendProc.on('exit', (code, signal) => {
+      if (backendLogPath) appendLog(backendLogPath, `Backend terminó. code=${code} signal=${signal || '-'}`);
       backendProc = null;
     });
+    backendProc.on('error', (err) => {
+      if (backendLogPath) appendLog(backendLogPath, `Error backend process: ${err.message}`);
+    });
   } catch (e) {
+    if (mainLogPath) appendLog(mainLogPath, `Error iniciando backend: ${e.message}`);
     backendProc = null;
   }
 }
@@ -95,11 +159,12 @@ const createWindow = () => {
     event.preventDefault();
   });
 
-  const startUrl = isDev
-    ? 'http://localhost:3000'
-    : `file://${path.join(__dirname, '../build/index.html')}`;
-
-  mainWindow.loadURL(startUrl);
+  if (isDev) {
+    mainWindow.loadURL('http://localhost:3000');
+  } else {
+    // En producción, el build se incluye dentro de resources/app/build
+    mainWindow.loadFile(path.join(__dirname, 'build', 'index.html'));
+  }
 
   // En desarrollo NO abrir DevTools automáticamente.
   // Si alguna vez lo necesitas, ejecútalo con ELECTRON_OPEN_DEVTOOLS=1
@@ -119,7 +184,17 @@ const createWindow = () => {
   });
 };
 
-app.on('ready', () => {
+app.on('ready', async () => {
+  await ensureLogs();
+  appendLog(mainLogPath, 'App ready');
+
+  process.on('uncaughtException', (err) => {
+    appendLog(mainLogPath, `uncaughtException: ${err && err.stack ? err.stack : String(err)}`);
+  });
+  process.on('unhandledRejection', (err) => {
+    appendLog(mainLogPath, `unhandledRejection: ${err && err.stack ? err.stack : String(err)}`);
+  });
+
   iniciarBackendProduccion();
   createWindow();
 });

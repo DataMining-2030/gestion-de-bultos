@@ -2,12 +2,38 @@ import React, { useState, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 
 function Historico({ onBack, onBultoSelected, usuario }) {
+  const DEFAULT_COL_WIDTHS = {
+    codigo: 176, // w-44
+    ov: 96, // w-24
+    ov_fecha: 160, // w-40
+    ov_estado: 112, // w-28
+    ov_cliente: 256, // w-64
+    ov_estratificacion: 160, // w-40
+    ov_region: 128, // w-32
+    ov_comuna: 128, // w-32
+    ov_direccion: 420, // w-[420px]
+    ov_ruta: 128, // w-32
+    factura: 112, // w-28
+    fecha_documento: 160, // w-40
+    wms_tipo_error: 176, // w-44
+    accion_recomendada: 220,
+    usuario: 112, // w-28
+    fecha_ingreso: 160, // w-40
+  };
+
+  const MIN_COL_W = 80;
+  const MAX_COL_W = 520;
+
+  const [colWidths, setColWidths] = useState(DEFAULT_COL_WIDTHS);
+  const [resizing, setResizing] = useState(null); // { key, startX, startW }
+
   const [filters, setFilters] = useState({
     bulto: '',
     ov: '',
     factura: '',
     cliente: '',
     estratificacion: '',
+    accion: '',
     fecha_ingreso: '',
   });
   const [currentPage, setCurrentPage] = useState(1);
@@ -15,6 +41,46 @@ function Historico({ onBack, onBultoSelected, usuario }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const itemsPerPage = 10;
+
+  useEffect(() => {
+    if (!resizing) return undefined;
+
+    const onMove = (e) => {
+      const dx = e.clientX - resizing.startX;
+      const next = Math.max(MIN_COL_W, Math.min(MAX_COL_W, resizing.startW + dx));
+      setColWidths((p) => ({ ...p, [resizing.key]: next }));
+    };
+
+    const onUp = () => {
+      setResizing(null);
+      try {
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    try {
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    } catch (e) {
+      // ignore
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      try {
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      } catch (e) {
+        // ignore
+      }
+    };
+  }, [resizing]);
   
   const formatDate = (value) => {
     if (!value) return '-';
@@ -71,6 +137,8 @@ function Historico({ onBack, onBultoSelected, usuario }) {
         // Factura y otros (al final)
         factura: item.factura || '-',
         fecha_documento: formatDate(item.fecha_documento),
+        wms_tipo_error: item.wms_tipo_error || '-',
+        accion_recomendada: item.accion_recomendada || '-',
         usuario: item.usuario || '-',
         fecha_ingreso: formatDateTime(item.fecha_ingreso),
         fecha_ingreso_raw: item.fecha_ingreso ? new Date(item.fecha_ingreso) : null,
@@ -94,6 +162,7 @@ function Historico({ onBack, onBultoSelected, usuario }) {
       factura: norm(filters.factura),
       cliente: norm(filters.cliente),
       estratificacion: norm(filters.estratificacion),
+      accion: norm(filters.accion),
       fecha_ingreso: String(filters.fecha_ingreso || '').trim(), // YYYY-MM-DD
     };
 
@@ -115,6 +184,7 @@ function Historico({ onBack, onBultoSelected, usuario }) {
       if (f.factura && !norm(b.factura).includes(f.factura)) return false;
       if (f.cliente && !norm(b.ov_cliente).includes(f.cliente)) return false;
       if (f.estratificacion && !norm(b.ov_estratificacion).includes(f.estratificacion)) return false;
+      if (f.accion && !norm(b.accion_recomendada).includes(f.accion)) return false;
 
       if (start && end) {
         const d = b.fecha_ingreso_raw instanceof Date ? b.fecha_ingreso_raw : null;
@@ -132,6 +202,7 @@ function Historico({ onBack, onBultoSelected, usuario }) {
     !!filters.factura ||
     !!filters.cliente ||
     !!filters.estratificacion ||
+    !!filters.accion ||
     !!filters.fecha_ingreso;
 
   // Paginación
@@ -159,6 +230,8 @@ function Historico({ onBack, onBultoSelected, usuario }) {
       'Ruta OV',
       'Factura',
       'Fecha Documento',
+      'Motivo WMS',
+      'Acción',
       'Usuario',
       'Ingreso',
     ];
@@ -176,6 +249,8 @@ function Historico({ onBack, onBultoSelected, usuario }) {
       b.ov_ruta,
       b.factura,
       b.fecha_documento,
+      b.wms_tipo_error,
+      b.accion_recomendada,
       b.usuario,
       b.fecha_ingreso,
     ]);
@@ -195,6 +270,8 @@ function Historico({ onBack, onBultoSelected, usuario }) {
       { wch: 14 },
       { wch: 12 },
       { wch: 16 },
+      { wch: 22 },
+      { wch: 28 },
       { wch: 14 },
       { wch: 18 },
     ];
@@ -290,7 +367,7 @@ function Historico({ onBack, onBultoSelected, usuario }) {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Filtros */}
         <div className="card mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-7 gap-4 mb-4">
             <div className="form-group">
               <label htmlFor="f_bulto" className="form-label">
                 Bulto
@@ -377,6 +454,23 @@ function Historico({ onBack, onBultoSelected, usuario }) {
             </div>
 
             <div className="form-group">
+              <label htmlFor="f_accion" className="form-label">
+                Acción
+              </label>
+              <input
+                id="f_accion"
+                type="text"
+                value={filters.accion}
+                onChange={(e) => {
+                  setFilters((p) => ({ ...p, accion: e.target.value }));
+                  setCurrentPage(1);
+                }}
+                placeholder="Evaluar despacho..."
+                className="input-field"
+              />
+            </div>
+
+            <div className="form-group">
               <label htmlFor="f_ingreso" className="form-label">
                 Fecha ingreso
               </label>
@@ -415,6 +509,7 @@ function Historico({ onBack, onBultoSelected, usuario }) {
                     factura: '',
                     cliente: '',
                     estratificacion: '',
+                    accion: '',
                     fecha_ingreso: '',
                   });
                   setCurrentPage(1);
@@ -448,20 +543,53 @@ function Historico({ onBack, onBultoSelected, usuario }) {
               <table className="table table-fixed min-w-[1600px]">
                 <thead className="table-header">
                   <tr>
-                    <th className="table-header-cell w-44 whitespace-nowrap">Código Bulto</th>
-                    <th className="table-header-cell w-24 whitespace-nowrap">OV</th>
-                    <th className="table-header-cell w-40 whitespace-nowrap">Fecha OV</th>
-                    <th className="table-header-cell w-28 whitespace-nowrap">Estado OV</th>
-                    <th className="table-header-cell w-64 whitespace-nowrap">Cliente</th>
-                    <th className="table-header-cell w-40 whitespace-nowrap">Estratificación</th>
-                    <th className="table-header-cell w-32 whitespace-nowrap">Región</th>
-                    <th className="table-header-cell w-32 whitespace-nowrap">Comuna</th>
-                    <th className="table-header-cell w-[420px] whitespace-nowrap">Dirección</th>
-                    <th className="table-header-cell w-32 whitespace-nowrap">Ruta OV</th>
-                    <th className="table-header-cell w-28 whitespace-nowrap">Factura</th>
-                    <th className="table-header-cell w-40 whitespace-nowrap">Fecha Documento</th>
-                    <th className="table-header-cell w-28 whitespace-nowrap">Usuario</th>
-                    <th className="table-header-cell w-40 whitespace-nowrap">Ingreso</th>
+                    {[
+                      { key: 'codigo', label: 'Código Bulto' },
+                      { key: 'ov', label: 'OV' },
+                      { key: 'ov_fecha', label: 'Fecha OV' },
+                      { key: 'ov_estado', label: 'Estado OV' },
+                      { key: 'ov_cliente', label: 'Cliente' },
+                      { key: 'ov_estratificacion', label: 'Estratificación' },
+                      { key: 'ov_region', label: 'Región' },
+                      { key: 'ov_comuna', label: 'Comuna' },
+                      { key: 'ov_direccion', label: 'Dirección' },
+                      { key: 'ov_ruta', label: 'Ruta OV' },
+                      { key: 'factura', label: 'Factura' },
+                      { key: 'fecha_documento', label: 'Fecha Documento' },
+                      { key: 'wms_tipo_error', label: 'Motivo WMS' },
+                      { key: 'accion_recomendada', label: 'Acción' },
+                      { key: 'usuario', label: 'Usuario' },
+                      { key: 'fecha_ingreso', label: 'Ingreso' },
+                    ].map((c, idx) => {
+                      const totalCols = 16;
+                      const isLast = idx === totalCols - 1;
+                      return (
+                        <th
+                          key={c.key}
+                          className="table-header-cell whitespace-nowrap relative select-none pr-3"
+                          style={{ width: colWidths[c.key] }}
+                        >
+                          {c.label}
+                          {!isLast && (
+                            <span
+                              role="separator"
+                              aria-orientation="vertical"
+                              title="Arrastra para ajustar ancho"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setResizing({
+                                  key: c.key,
+                                  startX: e.clientX,
+                                  startW: colWidths[c.key] || MIN_COL_W,
+                                });
+                              }}
+                              className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize"
+                            />
+                          )}
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody className="table-body">
@@ -477,41 +605,97 @@ function Historico({ onBack, onBultoSelected, usuario }) {
                           }
                         }}
                       >
-                        <td className="table-cell font-semibold text-primary-600 dark:text-primary-400 hover:underline whitespace-nowrap">
+                        <td
+                          className="table-cell font-semibold text-primary-600 dark:text-primary-400 hover:underline whitespace-nowrap"
+                          style={{ width: colWidths.codigo }}
+                        >
                           {bulto.codigo}
                         </td>
-                        <td className="table-cell whitespace-nowrap">{bulto.ov}</td>
-                        <td className="table-cell text-sm whitespace-nowrap">{bulto.ov_fecha}</td>
-                        <td className="table-cell whitespace-nowrap">{bulto.ov_estado}</td>
-                        <td className="table-cell whitespace-nowrap truncate" title={bulto.ov_cliente}>
+                        <td className="table-cell whitespace-nowrap" style={{ width: colWidths.ov }}>
+                          {bulto.ov}
+                        </td>
+                        <td className="table-cell text-sm whitespace-nowrap" style={{ width: colWidths.ov_fecha }}>
+                          {bulto.ov_fecha}
+                        </td>
+                        <td className="table-cell whitespace-nowrap" style={{ width: colWidths.ov_estado }}>
+                          {bulto.ov_estado}
+                        </td>
+                        <td
+                          className="table-cell whitespace-nowrap truncate"
+                          title={bulto.ov_cliente}
+                          style={{ width: colWidths.ov_cliente }}
+                        >
                           {bulto.ov_cliente}
                         </td>
-                        <td className="table-cell whitespace-nowrap truncate" title={bulto.ov_estratificacion}>
+                        <td
+                          className="table-cell whitespace-nowrap truncate"
+                          title={bulto.ov_estratificacion}
+                          style={{ width: colWidths.ov_estratificacion }}
+                        >
                           {bulto.ov_estratificacion}
                         </td>
-                        <td className="table-cell whitespace-nowrap truncate" title={bulto.ov_region}>
+                        <td
+                          className="table-cell whitespace-nowrap truncate"
+                          title={bulto.ov_region}
+                          style={{ width: colWidths.ov_region }}
+                        >
                           {bulto.ov_region}
                         </td>
-                        <td className="table-cell whitespace-nowrap truncate" title={bulto.ov_comuna}>
+                        <td
+                          className="table-cell whitespace-nowrap truncate"
+                          title={bulto.ov_comuna}
+                          style={{ width: colWidths.ov_comuna }}
+                        >
                           {bulto.ov_comuna}
                         </td>
-                        <td className="table-cell whitespace-nowrap truncate" title={bulto.ov_direccion}>
+                        <td
+                          className="table-cell whitespace-nowrap truncate"
+                          title={bulto.ov_direccion}
+                          style={{ width: colWidths.ov_direccion }}
+                        >
                           {bulto.ov_direccion}
                         </td>
-                        <td className="table-cell whitespace-nowrap truncate" title={bulto.ov_ruta}>
+                        <td
+                          className="table-cell whitespace-nowrap truncate"
+                          title={bulto.ov_ruta}
+                          style={{ width: colWidths.ov_ruta }}
+                        >
                           {bulto.ov_ruta}
                         </td>
-                        <td className="table-cell whitespace-nowrap">{bulto.factura}</td>
-                        <td className="table-cell text-sm whitespace-nowrap">{bulto.fecha_documento}</td>
-                        <td className="table-cell whitespace-nowrap">{bulto.usuario}</td>
-                        <td className="table-cell text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                        <td className="table-cell whitespace-nowrap" style={{ width: colWidths.factura }}>
+                          {bulto.factura}
+                        </td>
+                        <td className="table-cell text-sm whitespace-nowrap" style={{ width: colWidths.fecha_documento }}>
+                          {bulto.fecha_documento}
+                        </td>
+                        <td
+                          className="table-cell whitespace-nowrap truncate"
+                          title={bulto.wms_tipo_error}
+                          style={{ width: colWidths.wms_tipo_error }}
+                        >
+                          {bulto.wms_tipo_error}
+                        </td>
+                        <td
+                          className="table-cell whitespace-nowrap truncate"
+                          title={bulto.accion_recomendada}
+                          style={{ width: colWidths.accion_recomendada }}
+                        >
+                          {bulto.accion_recomendada}
+                        </td>
+                        <td className="table-cell whitespace-nowrap" style={{ width: colWidths.usuario }}>
+                          {bulto.usuario}
+                        </td>
+                        <td
+                          className="table-cell text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap"
+                          style={{ width: colWidths.fecha_ingreso }}
+                        >
                           {bulto.fecha_ingreso}
                         </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="14" className="table-cell text-center py-8">
+                      <td colSpan="16" className="table-cell text-center py-8">
                         <p className="text-gray-500 dark:text-gray-400">
                           {hasAnyFilter
                             ? 'No hay bultos que coincidan con los filtros' 

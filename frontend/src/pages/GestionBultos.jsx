@@ -120,6 +120,7 @@ function GestionBultos({ onBack, codigoBultoInicial, usuario }) {
         totalEnOV: data.totalBultosOV,
         ovInfo: data.ovInfo || null,
         wmsIntegracion: data.wmsIntegracion || null,
+        accionRecomendada: data.accionRecomendada || null,
       });
 
       setGruposBultos(Array.isArray(data.grupos) ? data.grupos : []);
@@ -202,6 +203,7 @@ function GestionBultos({ onBack, codigoBultoInicial, usuario }) {
             usuario: usuario?.usuario || null,
             ovInfo: bultoInfo?.ovInfo || null,
             wmsInfo: bultoInfo?.wmsIntegracion || null,
+            accionRecomendada: bultoInfo?.accionRecomendada || null,
           })
         });
 
@@ -508,11 +510,21 @@ function GestionBultos({ onBack, codigoBultoInicial, usuario }) {
                   <p className="text-[11px] text-gray-600 dark:text-gray-300 uppercase tracking-wide mb-1">
                     Integración WMS → SAP
                   </p>
+                  {bultoInfo.accionRecomendada && (
+                    <p className="text-xs text-gray-800 dark:text-gray-100 mb-1">
+                      Acción: <span className="font-semibold">{bultoInfo.accionRecomendada}</span>
+                    </p>
+                  )}
                   <p className="text-xs text-gray-800 dark:text-gray-100">
                     Estado: <span className="font-semibold">{bultoInfo.wmsIntegracion.estado || '-'}</span>
                     {bultoInfo.wmsIntegracion.codigo_error ? (
                       <span className="ml-2 text-gray-600 dark:text-gray-300">
                         Código: <span className="font-semibold">{bultoInfo.wmsIntegracion.codigo_error}</span>
+                      </span>
+                    ) : null}
+                    {bultoInfo.wmsIntegracion.tipo_error ? (
+                      <span className="ml-2 text-gray-600 dark:text-gray-300">
+                        Motivo: <span className="font-semibold">{bultoInfo.wmsIntegracion.tipo_error}</span>
                       </span>
                     ) : null}
                     {bultoInfo.wmsIntegracion.fecha ? (
@@ -521,9 +533,9 @@ function GestionBultos({ onBack, codigoBultoInicial, usuario }) {
                       </span>
                     ) : null}
                   </p>
-                  {bultoInfo.wmsIntegracion.mensaje_error ? (
+                  {(bultoInfo.wmsIntegracion.mensaje_usuario || bultoInfo.wmsIntegracion.mensaje_error) ? (
                     <p className="text-xs text-danger-700 dark:text-danger-200 mt-2 whitespace-pre-wrap">
-                      {bultoInfo.wmsIntegracion.mensaje_error}
+                      {bultoInfo.wmsIntegracion.mensaje_usuario || bultoInfo.wmsIntegracion.mensaje_error}
                     </p>
                   ) : null}
                 </div>
