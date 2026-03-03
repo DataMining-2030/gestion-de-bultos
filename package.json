@@ -8,10 +8,15 @@
     "start": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd backend && npm start",
     "dev:frontend": "cd frontend && npm start",
-    "build": "npm run build:frontend",
-    "build:frontend": "cd frontend && npm run build",
+    "build": "npm run build:frontend && npm run build:frontend:copy",
+    "build:frontend": "npm --prefix frontend run build",
+    "build:frontend:copy": "node scripts/copy-frontend-build.js",
+    "build:backend:prod": "npm --prefix backend ci --omit=dev",
     "electron": "electron .",
-    "electron-dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"wait-on http://localhost:3000 && electron .\"" 
+    "electron-dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"wait-on http://localhost:3000 && electron .\"",
+    "pack": "npm run build && npm run build:backend:prod && electron-builder --dir",
+    "dist": "npm run build && npm run build:backend:prod && electron-builder",
+    "dist:win": "npm run dist -- --win --x64"
   },
   "dependencies": {
     "electron-is-dev": "^2.0.0"
@@ -21,5 +26,32 @@
     "electron": "^27.0.0",
     "electron-builder": "^24.6.4",
     "wait-on": "^7.0.1"
+  },
+  "build": {
+    "appId": "cl.cmk.gestion-de-bultos",
+    "productName": "Gestion de Bultos",
+    "directories": {
+      "output": "dist"
+    },
+    "asar": false,
+    "files": [
+      "main.js",
+      "preload.js",
+      "build/**",
+      "backend/**",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
   }
 }

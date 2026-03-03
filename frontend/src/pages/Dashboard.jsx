@@ -66,8 +66,10 @@ function Dashboard({ onBack }) {
               ← Atrás
             </button>
             <div>
-              <h1 className="section-title mb-0">Dashboard</h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100 mb-0">
+                Dashboard
+              </h1>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
                 Resumen de operaciones
               </p>
             </div>

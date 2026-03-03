@@ -1,12 +1,23 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import './Login.css';
 
 function Login({ onLoginSuccess }) {
   const [usuario, setUsuario] = useState('');
   const [contraseña, setContraseña] = useState('');
+  const [mostrarContraseña, setMostrarContraseña] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
+
+  // Firma (mantener simple y propia del proyecto)
+  const firma = useMemo(
+    () => ({
+      year: new Date().getFullYear(),
+      product: 'Gestión de Bultos',
+      version: 'v1.0.0',
+    }),
+    []
+  );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -64,95 +75,255 @@ function Login({ onLoginSuccess }) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4 py-12 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md animate-slide-up">
-        {/* Card principal */}
-        <div className="card">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="section-title text-center">Gestión de Bultos</h1>
-            <p className="section-subtitle text-center">Inicia sesión en tu cuenta</p>
-          </div>
-
-          {/* Formulario */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Usuario */}
-            <div className="form-group">
-              <label htmlFor="usuario" className="form-label">
-                Usuario
-              </label>
-              <input
-                id="usuario"
-                type="text"
-                value={usuario}
-                onChange={(e) => setUsuario(e.target.value)}
-                placeholder="Ingresa tu usuario"
-                className="input-field"
-                disabled={loading}
-                autoFocus
+    <div className="min-h-screen login-bg px-4 flex items-center justify-center">
+      <div className="mx-auto w-full max-w-[460px] animate-slide-up">
+        {/* Título + Subtítulo */}
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center gap-2 text-2xl font-extrabold tracking-tight text-slate-900 mb-1">
+            <svg
+              className="h-7 w-7 text-primary-600"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M3.5 7.2 12 3l8.5 4.2v9.6L12 21l-8.5-4.2V7.2Z"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinejoin="round"
               />
+              <path
+                d="M12 21V12.2"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+              <path
+                d="M3.8 7.3 12 11.4l8.2-4.1"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span>Gestión de Bultos</span>
+          </div>
+          <div className="text-xs text-slate-500">Inicia sesión en tu cuenta</div>
+        </div>
+
+        {/* Card */}
+        <div className="login-card p-7">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Usuario */}
+            <div className="space-y-2">
+              <label htmlFor="usuario" className="login-label">Usuario</label>
+              <div className="login-input flex items-center gap-3 px-4">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path
+                    d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z"
+                    stroke="#94a3b8"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M20 21a8 8 0 1 0-16 0"
+                    stroke="#94a3b8"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <input
+                  id="usuario"
+                  type="text"
+                  value={usuario}
+                  onChange={(e) => setUsuario(e.target.value)}
+                  placeholder="Ingresa tu usuario"
+                  className="login-input__field login-input__placeholder"
+                  disabled={loading}
+                  autoFocus
+                />
+              </div>
             </div>
 
             {/* Contraseña */}
-            <div className="form-group">
-              <label htmlFor="contraseña" className="form-label">
+            <div className="space-y-2">
+              <label htmlFor="contraseña" className="login-label">
                 Contraseña
               </label>
-              <input
-                id="contraseña"
-                type="password"
-                value={contraseña}
-                onChange={(e) => setContraseña(e.target.value)}
-                placeholder="••••••••"
-                className="input-field"
-                disabled={loading}
-              />
+              <div className="login-input flex items-center gap-3 px-4">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path
+                    d="M17 11V8a5 5 0 0 0-10 0v3"
+                    stroke="#94a3b8"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M7 11h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2Z"
+                    stroke="#94a3b8"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+
+                <input
+                  id="contraseña"
+                  type={mostrarContraseña ? 'text' : 'password'}
+                  value={contraseña}
+                  onChange={(e) => setContraseña(e.target.value)}
+                  placeholder="Ingresa tu contraseña"
+                  className="login-input__field login-input__placeholder"
+                  disabled={loading}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setMostrarContraseña((v) => !v)}
+                  className="ml-1 p-1 rounded-md hover:bg-slate-100 transition-colors"
+                  aria-label={mostrarContraseña ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                >
+                  {mostrarContraseña ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path
+                        d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"
+                        stroke="#94a3b8"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"
+                        stroke="#94a3b8"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path
+                        d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-6.5 0-10-7-10-7a20.4 20.4 0 0 1 5.06-6.06"
+                        stroke="#94a3b8"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M1 1l22 22"
+                        stroke="#94a3b8"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M9.88 9.88A3 3 0 0 0 12 15a3 3 0 0 0 2.12-.88"
+                        stroke="#94a3b8"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M14.12 14.12 9.88 9.88"
+                        stroke="#94a3b8"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M8.3 5.1A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a20.6 20.6 0 0 1-4.2 5.2"
+                        stroke="#94a3b8"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  )}
+                </button>
+              </div>
             </div>
 
-            {/* Mensajes de error */}
+            {/* Mensajes */}
             {error && (
-              <div className="p-4 bg-danger-50 dark:bg-danger-900 border border-danger-200 dark:border-danger-700 rounded-lg animate-fade-in">
-                <p className="text-sm text-danger-700 dark:text-danger-200">{error}</p>
+              <div className="p-3 rounded-xl border border-red-200 bg-red-50">
+                <p className="text-sm text-red-700">{error}</p>
               </div>
             )}
 
-            {/* Mensajes de éxito */}
             {success && (
-              <div className="p-4 bg-success-50 dark:bg-success-900 border border-success-200 dark:border-success-700 rounded-lg animate-fade-in">
-                <p className="text-sm text-success-700 dark:text-success-200">{success}</p>
+              <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50">
+                <p className="text-sm text-emerald-700">{success}</p>
               </div>
             )}
 
-            {/* Botón de envío */}
+            {/* Botón */}
             <button
               type="submit"
               disabled={loading}
-              className={`w-full btn-primary transition-all duration-200 ${
-                loading ? 'opacity-50 cursor-not-allowed' : ''
+              className={`login-submit w-full text-white flex items-center justify-center gap-2 ${
+                loading ? 'opacity-70 cursor-not-allowed' : ''
               }`}
             >
               {loading ? (
                 <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  <svg
+                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
                   </svg>
-                  Iniciando sesión...
+                  Iniciando Sesión...
                 </span>
               ) : (
-                'Iniciar Sesión'
+                <>
+                  Iniciar Sesión
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path
+                      d="M5 12h12"
+                      stroke="white"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M13 6l6 6-6 6"
+                      stroke="white"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </>
               )}
             </button>
           </form>
-
-          {/* Footer - Eliminado */}
         </div>
 
-        {/* Versión de prueba */}
-        <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-lg">
-          <p className="text-xs text-blue-700 dark:text-blue-200 text-center">
-            <strong>Prueba:</strong> Usa cualquier email y contraseña (mín. 6 caracteres)
-          </p>
+        {/* Firma */}
+        <div className="login-signature">
+          <div>
+            Diseñado por <span className="login-signature__brand">Data Mining</span>
+          </div>
+          <div>
+            © {firma.year} {firma.product} {firma.version}
+          </div>
         </div>
       </div>
     </div>

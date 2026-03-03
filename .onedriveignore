@@ -1,0 +1,32 @@
+# Carpetas de dependencias - ocupan mucho espacio y causan conflictos
+node_modules
+frontend/node_modules
+backend/node_modules
+
+# Carpetas de compilación/distribución
+.next
+dist
+build
+out
+
+# Control de versiones
+.git
+.gitignore
+
+# Variables de entorno (NO sincronizar credenciales)
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Caché
+.cache
+.eslintcache
+
+# Electron
+out/

@@ -3,7 +3,11 @@ const cors = require('cors');
 require('dotenv').config();
 const mysql = require('mysql2/promise');
 const { validarCredenciales } = require('./config/credenciales.config');
-const { obtenerBultoHANA } = require('./services/hanaService');
+const { obtenerBultoHANA, obtenerBultosPorOVHANA, obtenerTrazabilidadOVHANA } = require('./services/hanaService');
+const { obtenerBultosPorOVDesdeBYProduccion, obtenerBultosPorOV } = require('./services/byProduccionService');
+const { obtenerUnidadesNetasPorBU } = require('./services/bultosNetoService');
+const { obtenerOVDesdeBUNeteado, obtenerBUsNeteadosPorOV } = require('./services/cmkBultosNeteadosService');
+const { obtenerUltimaIntegracionSalidaPorBU } = require('./services/wmsIntegracionesService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -35,9 +39,21 @@ async function inicializarTablaHistorico() {
         factura VARCHAR(50),
         ov VARCHAR(50),
         fecha_documento DATE,
-        fecha_ov DATE,
         fecha_ingreso TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         usuario VARCHAR(100),
+        ov_comuna VARCHAR(100),
+        ov_region VARCHAR(100),
+        ov_estado VARCHAR(50),
+        ov_estratificacion VARCHAR(150),
+        ov_direccion VARCHAR(255),
+        ov_ruta VARCHAR(100),
+        ov_cliente VARCHAR(255),
+        ov_fecha DATETIME,
+        wms_estado VARCHAR(20),
+        wms_codigo_error VARCHAR(50),
+        wms_mensaje_error TEXT,
+        wms_fecha DATETIME,
+        wms_trn_id VARCHAR(50),
         INDEX idx_codigo (codigo_bulto),
         INDEX idx_factura (factura),
         INDEX idx_fecha_ingreso (fecha_ingreso)
@@ -45,13 +61,64 @@ async function inicializarTablaHistorico() {
     `;
     
     await connection.query(query);
-    
-    // Limpiar datos de prueba si existen
-    try {
-      await connection.query('DELETE FROM cmk_HISTORICO_BULTOS');
-      console.log('✅ Datos de prueba eliminados');
-    } catch (e) {
-      // Ignorar si falla
+
+    // Asegurar columnas nuevas en tablas existentes
+    const [dbRow] = await connection.query('SELECT DATABASE() AS db');
+    const dbName = (dbRow && dbRow[0] && dbRow[0].db) || process.env.MYSQL_DATABASE;
+
+    async function addColumnIfMissing(columnName, columnSql) {
+      const [rows] = await connection.query(
+        `
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = ?
+            AND table_name = 'cmk_HISTORICO_BULTOS'
+            AND column_name = ?
+          LIMIT 1
+        `,
+        [dbName, columnName]
+      );
+      if (!rows || rows.length === 0) {
+        await connection.query(
+          `ALTER TABLE cmk_HISTORICO_BULTOS ADD COLUMN ${columnName} ${columnSql}`
+        );
+        console.log(`✅ Columna agregada en histórico: ${columnName}`);
+      }
+    }
+
+    await addColumnIfMissing('ov_comuna', 'VARCHAR(100) NULL');
+    await addColumnIfMissing('ov_region', 'VARCHAR(100) NULL');
+    await addColumnIfMissing('ov_estado', 'VARCHAR(50) NULL');
+    await addColumnIfMissing('ov_estratificacion', 'VARCHAR(150) NULL');
+    await addColumnIfMissing('ov_direccion', 'VARCHAR(255) NULL');
+    await addColumnIfMissing('ov_ruta', 'VARCHAR(100) NULL');
+    await addColumnIfMissing('ov_cliente', 'VARCHAR(255) NULL');
+    await addColumnIfMissing('ov_fecha', 'DATETIME NULL');
+    await addColumnIfMissing('wms_estado', 'VARCHAR(20) NULL');
+    await addColumnIfMissing('wms_codigo_error', 'VARCHAR(50) NULL');
+    await addColumnIfMissing('wms_mensaje_error', 'TEXT NULL');
+    await addColumnIfMissing('wms_fecha', 'DATETIME NULL');
+    await addColumnIfMissing('wms_trn_id', 'VARCHAR(50) NULL');
+
+    // Dejar solo UNA fecha OV consolidada (ov_fecha). Intentar eliminar fecha_ov si existe.
+    const [fechaOvCol] = await connection.query(
+      `
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = ?
+          AND table_name = 'cmk_HISTORICO_BULTOS'
+          AND column_name = 'fecha_ov'
+        LIMIT 1
+      `,
+      [dbName]
+    );
+    if (fechaOvCol && fechaOvCol.length) {
+      try {
+        await connection.query('ALTER TABLE cmk_HISTORICO_BULTOS DROP COLUMN fecha_ov');
+        console.log('✅ Columna eliminada del histórico: fecha_ov');
+      } catch (e) {
+        // si no se puede (por permisos/locks), lo dejamos
+      }
     }
     
     connection.release();
@@ -109,12 +176,138 @@ async function inicializarTablaUsuarios() {
 // Llamar al inicializar
 inicializarTablaUsuarios();
 
+// Inicializar tabla de exportaciones (auditoría)
+async function inicializarTablaExportaciones() {
+  try {
+    const connection = await pool.getConnection();
+
+    const query = `
+      CREATE TABLE IF NOT EXISTS cmk_bultos_exportado (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        fecha_exportacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        usuario VARCHAR(100) NOT NULL,
+        origen VARCHAR(50) DEFAULT 'Historico',
+        formato VARCHAR(10) DEFAULT 'xlsx',
+        filename VARCHAR(255),
+        total_registros INT DEFAULT 0,
+        filtro_bulto VARCHAR(100),
+        filtro_ov VARCHAR(100),
+        filtro_factura VARCHAR(100),
+        filtro_cliente VARCHAR(255),
+        filtro_estratificacion VARCHAR(255),
+        filtro_fecha_ingreso VARCHAR(20),
+        filtros_json LONGTEXT,
+        INDEX idx_usuario (usuario),
+        INDEX idx_fecha_exportacion (fecha_exportacion),
+        INDEX idx_origen (origen)
+      )
+    `;
+
+    await connection.query(query);
+    connection.release();
+    console.log('✅ Tabla cmk_bultos_exportado verificada/creada');
+  } catch (error) {
+    console.error('❌ Error al inicializar tabla de exportaciones:', error.message);
+  }
+}
+
+inicializarTablaExportaciones();
+
 // Validar credenciales al iniciar
 console.log('📋 Estado de credenciales:', validarCredenciales());
 
 // Ruta base
 app.get('/', (req, res) => {
   res.json({ mensaje: 'Servidor backend funcionando correctamente' });
+});
+
+// Consulta "en vivo" a BY (SQL Server): integración Salida Mercaderia por BU
+app.get('/api/wms/integracion/:bu', async (req, res) => {
+  try {
+    const bu = String(req.params.bu ?? '').trim();
+    if (!bu) return res.status(400).json({ error: 'BU requerido' });
+
+    const daysBack = req.query && req.query.daysBack ? Number(req.query.daysBack) : 14;
+    const data = await obtenerUltimaIntegracionSalidaPorBU(bu, { daysBack });
+    return res.status(200).json({ bu, data });
+  } catch (error) {
+    console.error('❌ Error al consultar integración WMS:', error.message);
+    return res.status(500).json({ error: 'Error al consultar integración WMS' });
+  }
+});
+
+// Registrar exportaciones (auditoría)
+app.post('/api/exportaciones/registrar', async (req, res) => {
+  try {
+    const {
+      usuario,
+      origen,
+      formato,
+      filename,
+      total_registros,
+      filtros,
+    } = req.body || {};
+
+    const usuarioStr = String(usuario ?? '').trim();
+    if (!usuarioStr) {
+      return res.status(400).json({ error: 'Usuario exportador requerido' });
+    }
+
+    const origenStr = String(origen ?? 'Historico').trim() || 'Historico';
+    const formatoStr = String(formato ?? 'xlsx').trim() || 'xlsx';
+    const filenameStr = filename ? String(filename).trim() : null;
+    const total = Number.isFinite(Number(total_registros)) ? Number(total_registros) : 0;
+
+    const f = filtros && typeof filtros === 'object' ? filtros : {};
+    const filtroBulto = f.bulto ? String(f.bulto).trim() : null;
+    const filtroOv = f.ov ? String(f.ov).trim() : null;
+    const filtroFactura = f.factura ? String(f.factura).trim() : null;
+    const filtroCliente = f.cliente ? String(f.cliente).trim() : null;
+    const filtroEstrat = f.estratificacion ? String(f.estratificacion).trim() : null;
+    const filtroFechaIngreso = f.fecha_ingreso ? String(f.fecha_ingreso).trim() : null;
+    const filtrosJson = JSON.stringify(f);
+
+    const connection = await pool.getConnection();
+    await connection.query(
+      `
+        INSERT INTO cmk_bultos_exportado (
+          usuario,
+          origen,
+          formato,
+          filename,
+          total_registros,
+          filtro_bulto,
+          filtro_ov,
+          filtro_factura,
+          filtro_cliente,
+          filtro_estratificacion,
+          filtro_fecha_ingreso,
+          filtros_json
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        usuarioStr,
+        origenStr,
+        formatoStr,
+        filenameStr,
+        total,
+        filtroBulto,
+        filtroOv,
+        filtroFactura,
+        filtroCliente,
+        filtroEstrat,
+        filtroFechaIngreso,
+        filtrosJson,
+      ]
+    );
+    connection.release();
+
+    return res.status(200).json({ ok: true });
+  } catch (error) {
+    console.error('❌ Error al registrar exportación:', error.message);
+    return res.status(500).json({ error: 'Error al registrar exportación' });
+  }
 });
 
 // Ruta de login
@@ -187,46 +380,266 @@ app.get('/api/bultos/:codigo', async (req, res) => {
   try {
     const { codigo } = req.params;
 
-    if (!codigo || codigo.trim().length === 0) {
+    const codigoBulto = (codigo || '').trim();
+    if (!codigoBulto) {
       return res.status(400).json({ 
         error: 'Código de bulto requerido' 
       });
     }
 
-    console.log(`🔍 Buscando bulto: ${codigo}`);
-    const datos = await obtenerBultoHANA(codigo);
+    // 1) Master: cmk_bultos_neteados (bultos netos, sin fantasmas)
+    console.log(`🔍 Buscando bulto: ${codigoBulto}`);
 
-    if (!datos || datos.length === 0) {
-      return res.status(404).json({ 
-        error: 'Bulto no encontrado' 
+    let ov = null; // normalizada (últimos 6 dígitos)
+    let fuenteOV = null;
+    let byData = null;
+
+    let ovFromNeto = null;
+    try {
+      ovFromNeto = await obtenerOVDesdeBUNeteado(pool, codigoBulto);
+    } catch (e) {
+      console.warn('⚠️ No se pudo consultar cmk_bultos_neteados (BU):', e.message);
+      ovFromNeto = null;
+    }
+    if (ovFromNeto && ovFromNeto.ov_norm) {
+      ov = ovFromNeto.ov_norm;
+      fuenteOV = 'CMK_BULTOS_NETEADOS';
+      console.log(`✅ OV desde SQL (cmk_bultos_neteados): ${ov}`);
+    } else {
+      // Fallback: si no está neteado (o no existe), intentar inferir OV por HANA (si tiene factura)
+      const datosFacturaHana = await obtenerBultoHANA(codigoBulto);
+      if (datosFacturaHana && datosFacturaHana.length > 0) {
+        const exact =
+          datosFacturaHana.find((r) =>
+            String(r.Bultos || '').toUpperCase().includes(codigoBulto.toUpperCase())
+          ) || datosFacturaHana[0];
+        ov = exact.OV;
+        fuenteOV = 'HANA';
+        console.log(`ℹ️ OV desde HANA (fallback): ${ov}`);
+      } else {
+        // Último fallback: OV desde by_produccion (solo para ubicar OV; la lista final seguirá neteada si existe)
+        byData = await obtenerBultosPorOVDesdeBYProduccion(pool, codigoBulto);
+        if (byData) {
+          ov = byData.ov;
+          fuenteOV = 'BY_PRODUCCION';
+          console.log(`ℹ️ OV desde MySQL by_produccion (fallback): ${ov}`);
+        }
+      }
+    }
+
+    if (!ov) {
+      return res.status(404).json({ error: 'Bulto no encontrado' });
+    }
+
+    // 2) Traer todos los bultos de la OV desde ambas fuentes
+    // MySQL: base neteada (BU válidos)
+    let byOVRowsValidos = [];
+    try {
+      byOVRowsValidos = await obtenerBUsNeteadosPorOV(pool, ov);
+      console.log(`✅ BU neteados desde SQL (cmk_bultos_neteados): ${byOVRowsValidos.length}`);
+    } catch (e) {
+      console.warn('⚠️ No se pudo consultar cmk_bultos_neteados (OV):', e.message);
+      byOVRowsValidos = [];
+    }
+
+    // Fallback: si la vista no devolvió nada, netear en backend desde by_produccion (más lento, pero evita depender 100% de la vista)
+    if (!byOVRowsValidos || byOVRowsValidos.length === 0) {
+      console.log('⚠️ cmk_bultos_neteados no devolvió filas; usando neteo por backend desde by_produccion.');
+      const byOVRows = await obtenerBultosPorOV(pool, ov);
+      const net = await obtenerUnidadesNetasPorBU(pool, {
+        ovRaw: null,
+        ov,
+        buList: (byOVRows || []).map((b) => b.codigo),
+      });
+
+      byOVRowsValidos = (byOVRows || [])
+        .filter((b) => {
+          const key = String(b.codigo || '').trim().toUpperCase();
+          if (!key) return false;
+          if (!net.has(key)) return true;
+          return (net.get(key) || 0) > 0;
+        })
+        .map((b) => ({ codigo: b.codigo, ov: b.ov }));
+
+      console.log(`✅ BU neteados por fallback (backend): ${byOVRowsValidos.length}`);
+    }
+
+    // HANA: complementa con factura/fechas por OV
+    const hanaOVRows = await obtenerBultosPorOVHANA(ov);
+
+    // 3) Merge (BY base; HANA sobreescribe/enriquece)
+    const map = new Map();
+
+    (byOVRowsValidos || []).forEach((r) => {
+      const key = String(r.codigo || '').trim();
+      if (!key) return;
+      const upper = key.toUpperCase();
+      map.set(upper, {
+        codigo: key,
+        factura: null,
+        cantidadBultos: null,
+        fechaDocumento: null,
+        fechaOV: null,
+        ov: r.ov ?? ov,
+      });
+    });
+
+    (hanaOVRows || []).forEach((r) => {
+      const key = String(r.Bultos || '').trim();
+      if (!key) return;
+      const upper = key.toUpperCase();
+      const prev = map.get(upper);
+      map.set(upper, {
+        codigo: key,
+        factura: r.FolioNum || prev?.factura || null,
+        cantidadBultos: r.CANT_BULTOS ?? prev?.cantidadBultos ?? null,
+        fechaDocumento: r.DocDate || prev?.fechaDocumento || null,
+        fechaOV: r.FECHA_OV || prev?.fechaOV || null,
+        ov: r.OV ?? prev?.ov ?? ov,
+      });
+    });
+
+    const todos = Array.from(map.values()).sort((a, b) =>
+      a.codigo.localeCompare(b.codigo, 'es')
+    );
+
+    // 4) Identificar el bulto buscado y agrupar por factura / sin factura
+    const buscado =
+      todos.find((b) => b.codigo.toUpperCase() === codigoBulto.toUpperCase()) ||
+      todos[0];
+
+    const facturaPrincipal = buscado.factura || null;
+    const keySinFactura = '__SIN_FACTURA__';
+
+    const gruposMap = new Map();
+    todos.forEach((b) => {
+      const key = b.factura ? String(b.factura) : keySinFactura;
+      if (!gruposMap.has(key)) gruposMap.set(key, []);
+      gruposMap.get(key).push(b);
+    });
+
+    // ordenar bultos dentro de cada grupo
+    for (const list of gruposMap.values()) {
+      list.sort((a, b) => a.codigo.localeCompare(b.codigo, 'es'));
+    }
+
+    const keyPrincipal = facturaPrincipal ? String(facturaPrincipal) : keySinFactura;
+
+    const keysFactura = Array.from(gruposMap.keys()).filter((k) => k !== keySinFactura);
+    keysFactura.sort((a, b) => a.localeCompare(b, 'es'));
+
+    const grupos = [];
+    if (gruposMap.has(keyPrincipal)) {
+      grupos.push({
+        factura: keyPrincipal === keySinFactura ? null : keyPrincipal,
+        esPrincipal: true,
+        bultos: gruposMap.get(keyPrincipal),
       });
     }
 
-    // Encontrar el bulto exacto que se buscó (puede estar en cualquier posición)
-    const bultoSearched = datos.find(item => 
-      item.Bultos.toUpperCase().includes(codigo.toUpperCase())
-    ) || datos[0];
+    keysFactura
+      .filter((k) => k !== keyPrincipal)
+      .forEach((k) => {
+        grupos.push({
+          factura: k,
+          esPrincipal: false,
+          bultos: gruposMap.get(k),
+        });
+      });
 
-    // Los otros son los que no coinciden con el bulto buscado
-    const otrosBultos = datos.filter(item => 
-      item.Bultos !== bultoSearched.Bultos
-    );
+    if (keySinFactura !== keyPrincipal && gruposMap.has(keySinFactura)) {
+      grupos.push({
+        factura: null,
+        esPrincipal: false,
+        bultos: gruposMap.get(keySinFactura),
+      });
+    }
+
+    // 5) Info adicional de la OV (trazabilidad)
+    let ovInfo = null;
+    try {
+      ovInfo = await obtenerTrazabilidadOVHANA(ov);
+      // Corregir comuna vía MySQL (_comuna_mapeo): comuna_origen -> comuna_corregida
+      if (ovInfo && ovInfo.Comuna) {
+        const comunaOrigen = String(ovInfo.Comuna).trim();
+        const connection = await pool.getConnection();
+        try {
+          const tryTables = async (tableName) => {
+            const [rows] = await connection.query(
+              `SELECT comuna_corregida FROM ${tableName} WHERE comuna_origen = ? LIMIT 1`,
+              [comunaOrigen]
+            );
+            return rows && rows[0] ? rows[0].comuna_corregida : null;
+          };
+
+          let corregida = null;
+          try {
+            corregida = await tryTables('`_comuna_mapeo`');
+          } catch (e) {
+            // ignorar
+          }
+          if (!corregida) {
+            try {
+              corregida = await tryTables('`comuna_mapeo`');
+            } catch (e) {
+              // ignorar
+            }
+          }
+
+          if (corregida) ovInfo.Comuna = corregida;
+
+          // Con comuna ya corregida, traer Región desde MySQL `_regiones_y_comunas`
+          const comunaParaRegion = String(ovInfo.Comuna || comunaOrigen).trim();
+          if (comunaParaRegion) {
+            const tryRegion = async (tableName) => {
+              const [rows] = await connection.query(
+                `SELECT nombre_region FROM ${tableName} WHERE nombre_comuna = ? LIMIT 1`,
+                [comunaParaRegion]
+              );
+              return rows && rows[0] ? rows[0].nombre_region : null;
+            };
+
+            let region = null;
+            try {
+              region = await tryRegion('`_regiones_y_comunas`');
+            } catch (e) {
+              // ignorar
+            }
+            if (!region) {
+              try {
+                region = await tryRegion('`regiones_y_comunas`');
+              } catch (e) {
+                // ignorar
+              }
+            }
+
+            if (region) ovInfo['Región'] = region;
+          }
+        } finally {
+          connection.release();
+        }
+      }
+    } catch (e) {
+      // no bloquear si falla
+      ovInfo = null;
+    }
+
+    // 6) Integración WMS->SAP (BY SQL Server): último estado/mensaje por BU
+    let wmsIntegracion = null;
+    try {
+      wmsIntegracion = await obtenerUltimaIntegracionSalidaPorBU(codigoBulto, { daysBack: 14 });
+    } catch (e) {
+      wmsIntegracion = null;
+    }
 
     res.status(200).json({
-      bulto: {
-        codigo: bultoSearched.Bultos,
-        factura: bultoSearched.FolioNum,
-        cantidadBultos: bultoSearched.CANT_BULTOS,
-        fechaDocumento: bultoSearched.DocDate,
-        fechaOV: bultoSearched.FECHA_OV,
-        ov: bultoSearched.OV,
-      },
-      otrosBultos: otrosBultos.map(item => ({
-        codigo: item.Bultos,
-        factura: item.FolioNum,
-        cantidadBultos: item.CANT_BULTOS,
-      })),
-      totalBultosEnFactura: datos.length,
+      ov,
+      fuenteOV,
+      ovInfo,
+      wmsIntegracion,
+      bulto: buscado,
+      grupos,
+      totalBultosOV: todos.length,
     });
   } catch (error) {
     console.error('❌ Error al obtener bulto:', error.message);
@@ -272,7 +685,7 @@ app.get('/api/historico/verificar/:codigo', async (req, res) => {
 // Ruta para guardar bulto en histórico
 app.post('/api/historico/guardar', async (req, res) => {
   try {
-    const { codigo_bulto, factura, ov, fecha_documento, fecha_ov } = req.body;
+    const { codigo_bulto, factura, ov, fecha_documento, usuario, ovInfo, wmsInfo } = req.body;
 
     if (!codigo_bulto) {
       return res.status(400).json({ error: 'Código de bulto requerido' });
@@ -294,12 +707,60 @@ app.post('/api/historico/guardar', async (req, res) => {
       });
     }
 
+    const ov_comuna = ovInfo?.Comuna ?? null;
+    const ov_region = ovInfo?.['Región'] ?? null;
+    const ov_estado = ovInfo?.['Estado OV'] ?? null;
+    const ov_estratificacion = ovInfo?.Estratificación ?? null;
+    const ov_direccion = ovInfo?.Direccion ?? null;
+    const ov_ruta = ovInfo?.['Ruta OV'] ?? null;
+    const ov_cliente = ovInfo?.Cliente ?? null;
+    const ov_fecha_raw = ovInfo?.['Fecha OV'] ?? null;
+
+    // mysql2 formatea Date correctamente a DATETIME
+    let ov_fecha = null;
+    if (ov_fecha_raw) {
+      const d = ov_fecha_raw instanceof Date ? ov_fecha_raw : new Date(ov_fecha_raw);
+      if (!Number.isNaN(d.getTime())) ov_fecha = d;
+    }
+
+    // WMS/Integración (opcional)
+    const wms_estado = wmsInfo?.estado ?? null;
+    const wms_codigo_error = wmsInfo?.codigo_error ?? null;
+    const wms_mensaje_error = wmsInfo?.mensaje_error ?? null;
+    const wms_trn_id = wmsInfo?.trn_id ?? null;
+    let wms_fecha = null;
+    if (wmsInfo?.fecha) {
+      const d = wmsInfo.fecha instanceof Date ? wmsInfo.fecha : new Date(wmsInfo.fecha);
+      if (!Number.isNaN(d.getTime())) wms_fecha = d;
+    }
+
     // Insertar nuevo bulto
     const [result] = await connection.query(
       `INSERT INTO cmk_HISTORICO_BULTOS 
-       (codigo_bulto, factura, ov, fecha_documento, fecha_ov) 
-       VALUES (?, ?, ?, ?, ?)`,
-      [codigo_bulto, factura, ov, fecha_documento, fecha_ov]
+       (codigo_bulto, factura, ov, fecha_documento, usuario,
+        ov_comuna, ov_region, ov_estado, ov_estratificacion, ov_direccion, ov_ruta, ov_cliente, ov_fecha,
+        wms_estado, wms_codigo_error, wms_mensaje_error, wms_fecha, wms_trn_id) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        codigo_bulto,
+        factura,
+        ov,
+        fecha_documento,
+        usuario ?? null,
+        ov_comuna,
+        ov_region,
+        ov_estado,
+        ov_estratificacion,
+        ov_direccion,
+        ov_ruta,
+        ov_cliente,
+        ov_fecha,
+        wms_estado,
+        wms_codigo_error,
+        wms_mensaje_error,
+        wms_fecha,
+        wms_trn_id,
+      ]
     );
 
     connection.release();

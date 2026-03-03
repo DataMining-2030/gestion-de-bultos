@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 
-function GestionBultos({ onBack, codigoBultoInicial }) {
+function GestionBultos({ onBack, codigoBultoInicial, usuario }) {
   const [codigoBulto, setCodigoBulto] = useState('');
   const [bultoInfo, setBultoInfo] = useState(null);
-  const [otrosBultos, setOtrosBultos] = useState([]);
+  const [gruposBultos, setGruposBultos] = useState([]);
+  const [gruposColapsados, setGruposColapsados] = useState({});
   const [loading, setLoading] = useState(false);
+  const [busquedaLenta, setBusquedaLenta] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [estadoHistorico, setEstadoHistorico] = useState({});
@@ -12,17 +14,66 @@ function GestionBultos({ onBack, codigoBultoInicial }) {
   const [confirmMessage, setConfirmMessage] = useState('');
   const [bultosAGuardar, setBultosAGuardar] = useState([]);
 
+  const formatDate = (value) => {
+    if (!value) return '-';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '-';
+    return d.toLocaleDateString('es-CL');
+  };
+
+  const formatDateTime = (value) => {
+    if (!value) return '-';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '-';
+    const fecha = d.toLocaleDateString('es-CL');
+    const hora = d.toLocaleTimeString('es-CL', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    return `${fecha} ${hora}`;
+  };
+
+  const getConteoIngresados = (codigos) => {
+    const list = Array.isArray(codigos) ? codigos : [];
+    const total = list.length;
+    const ingresados = list.reduce((acc, c) => acc + (estadoHistorico[c] ? 1 : 0), 0);
+    return { total, ingresados, faltan: Math.max(0, total - ingresados) };
+  };
+
+  const getMetricasOV = () => {
+    const bultos = (gruposBultos || []).flatMap((g) => g?.bultos || []);
+    const codigos = bultos.map((b) => b.codigo).filter(Boolean);
+    const { total, ingresados, faltan } = getConteoIngresados(codigos);
+    const facturados = bultos.filter((b) => b && b.factura).length;
+    const sinFactura = Math.max(0, total - facturados);
+    const facturasOV = new Set(bultos.map((b) => (b && b.factura ? String(b.factura) : null)).filter(Boolean))
+      .size;
+    return { total, facturasOV, ingresados, faltan, facturados, sinFactura };
+  };
+
   // Limpiar todo al montar el componente
   useEffect(() => {
     // Limpiar siempre al entrar
     setCodigoBulto('');
     setBultoInfo(null);
-    setOtrosBultos([]);
+    setGruposBultos([]);
+    setGruposColapsados({});
     setEstadoHistorico({});
     setError('');
     setSuccess('');
     setShowConfirm(false);
   }, []);
+
+  // Inicializar estado de colapso cada vez que llegan grupos nuevos
+  useEffect(() => {
+    const next = {};
+    (gruposBultos || []).forEach((g) => {
+      const key = g?.factura ? String(g.factura) : '__SIN_FACTURA__';
+      next[key] = true; // por defecto: colapsado (el usuario despliega lo que necesita)
+    });
+    setGruposColapsados(next);
+  }, [gruposBultos]);
 
   // Si viene codigoBultoInicial, buscar automáticamente
   useEffect(() => {
@@ -35,7 +86,8 @@ function GestionBultos({ onBack, codigoBultoInicial }) {
     setError('');
     setSuccess('');
     setBultoInfo(null);
-    setOtrosBultos([]);
+    setGruposBultos([]);
+    setGruposColapsados({});
     setEstadoHistorico({});
     setShowConfirm(false);
 
@@ -45,6 +97,8 @@ function GestionBultos({ onBack, codigoBultoInicial }) {
     }
 
     setLoading(true);
+    setBusquedaLenta(false);
+    const slowTimer = setTimeout(() => setBusquedaLenta(true), 1200);
 
     try {
       const response = await fetch(`http://localhost:5000/api/bultos/${codigo.trim()}`);
@@ -63,20 +117,27 @@ function GestionBultos({ onBack, codigoBultoInicial }) {
         fechaDocumento: data.bulto.fechaDocumento,
         fechaOV: data.bulto.fechaOV,
         ov: data.bulto.ov,
-        totalEnFactura: data.totalBultosEnFactura,
+        totalEnOV: data.totalBultosOV,
+        ovInfo: data.ovInfo || null,
+        wmsIntegracion: data.wmsIntegracion || null,
       });
 
-      if (data.otrosBultos && data.otrosBultos.length > 0) {
-        setOtrosBultos(data.otrosBultos);
-      }
+      setGruposBultos(Array.isArray(data.grupos) ? data.grupos : []);
+      setGruposColapsados({});
+      setEstadoHistorico({});
 
-      // Verificar estado en histórico
-      await verificarEnHistorico([data.bulto.codigo, ...data.otrosBultos.map(b => b.codigo)]);
+      const codigosParaVerificar = (Array.isArray(data.grupos) ? data.grupos : [])
+        .flatMap((g) => (g?.bultos || []).map((b) => b.codigo))
+        .filter(Boolean);
 
-      setLoading(false);
+      await verificarEnHistorico(codigosParaVerificar.length ? codigosParaVerificar : [data.bulto.codigo]);
+
     } catch (err) {
       setError(err.message || 'Error al buscar bulto');
+    } finally {
+      clearTimeout(slowTimer);
       setLoading(false);
+      setBusquedaLenta(false);
     }
   };
 
@@ -122,7 +183,12 @@ function GestionBultos({ onBack, codigoBultoInicial }) {
       let guardados = 0;
 
       for (const codigo of codigos) {
-        const bulto = codigo === bultoInfo.codigo ? bultoInfo : otrosBultos.find(b => b.codigo === codigo);
+        const bulto =
+          codigo === bultoInfo.codigo
+            ? bultoInfo
+            : gruposBultos
+                .flatMap((g) => g.bultos || [])
+                .find((b) => b.codigo === codigo);
         
         const response = await fetch('http://localhost:5000/api/historico/guardar', {
           method: 'POST',
@@ -132,7 +198,10 @@ function GestionBultos({ onBack, codigoBultoInicial }) {
             factura: bulto.factura,
             ov: bulto.ov,
             fecha_documento: bulto.fechaDocumento,
-            fecha_ov: bulto.fechaOV
+            fecha_ov: bulto.fechaOV,
+            usuario: usuario?.usuario || null,
+            ovInfo: bultoInfo?.ovInfo || null,
+            wmsInfo: bultoInfo?.wmsIntegracion || null,
           })
         });
 
@@ -151,7 +220,7 @@ function GestionBultos({ onBack, codigoBultoInicial }) {
       setTimeout(() => {
         setCodigoBulto('');
         setBultoInfo(null);
-        setOtrosBultos([]);
+        setGruposBultos([]);
         setEstadoHistorico({});
         setSuccess('');
       }, 2000);
@@ -181,9 +250,11 @@ function GestionBultos({ onBack, codigoBultoInicial }) {
               ← Atrás
             </button>
             <div>
-              <h1 className="section-title mb-0">Gestión de Bultos</h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Escanea o ingresa el código del bulto para obtener información de HANA
+              <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100 mb-0">
+                Gestión de Bultos
+              </h1>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                Escanea o ingresa el código del bulto para obtener información de MySQL y HANA
               </p>
             </div>
           </div>
@@ -191,10 +262,10 @@ function GestionBultos({ onBack, codigoBultoInicial }) {
       </header>
 
       {/* Contenido */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
         {/* Formulario de búsqueda */}
-        <div className="card mb-8">
-          <form onSubmit={handleBuscar} className="space-y-4">
+        <div className="card p-3 mb-4">
+          <form onSubmit={handleBuscar} className="space-y-3">
             <div className="form-group">
               <label htmlFor="codigoBulto" className="form-label">
                 Bulto
@@ -206,19 +277,51 @@ function GestionBultos({ onBack, codigoBultoInicial }) {
                   value={codigoBulto}
                   onChange={(e) => setCodigoBulto(e.target.value)}
                   placeholder="Escanea o ingresa el bulto..."
-                  className="input-field flex-1"
+                  className="input-field flex-1 h-10 py-1.5 text-sm"
                   disabled={loading}
                   autoFocus
                 />
                 <button
                   type="submit"
                   disabled={loading}
-                  className="btn-primary whitespace-nowrap"
+                  className="btn-primary whitespace-nowrap h-10 py-1.5 text-sm px-4"
                 >
-                  {loading ? 'Buscando...' : 'Buscar'}
+                  <span className="inline-flex items-center gap-2">
+                    {loading && (
+                      <svg
+                        className="h-4 w-4 animate-spin text-white"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        aria-hidden="true"
+                      >
+                        <circle
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                          opacity="0.25"
+                        />
+                        <path
+                          d="M22 12a10 10 0 0 1-10 10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                          strokeLinecap="round"
+                          opacity="0.9"
+                        />
+                      </svg>
+                    )}
+                    {loading ? 'Buscando…' : 'Buscar'}
+                  </span>
                 </button>
               </div>
             </div>
+
+            {loading && (
+              <div className="h-1 w-full overflow-hidden rounded bg-gray-200 dark:bg-gray-700">
+                <div className="h-full w-full bg-gradient-to-r from-primary-600 via-primary-400 to-primary-600 animate-pulse" />
+              </div>
+            )}
 
             {error && (
               <div className="p-4 bg-danger-50 dark:bg-danger-900 border border-danger-200 dark:border-danger-700 rounded-lg animate-fade-in">
@@ -228,21 +331,48 @@ function GestionBultos({ onBack, codigoBultoInicial }) {
           </form>
         </div>
 
+        {/* Placeholder mientras busca (evita sensación de “pegado”) */}
+        {loading && !bultoInfo && (
+          <div className="card p-4 mb-4 animate-pulse">
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-48 mb-3" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="space-y-2">
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24" />
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-40" />
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-28 mt-3" />
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-44" />
+              </div>
+              <div className="space-y-2">
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24" />
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-40" />
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-28 mt-3" />
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-36" />
+              </div>
+              <div className="space-y-2">
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-28" />
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" />
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-28 mt-3" />
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24" />
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Información del Bulto */}
         {bultoInfo && (
-          <div className="space-y-6 animate-slide-up">
+          <div className="space-y-3 animate-slide-up">
             {/* Card principal */}
-            <div className="card border-l-4 border-l-primary-500">
-              <div className="flex justify-between items-start mb-6">
+            <div className="card p-3 border-l-4 border-l-primary-500">
+              <div className="flex justify-between items-start mb-2">
                 <div>
                   <div className="flex items-center gap-3">
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                    <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">
                       {bultoInfo.codigo}
                     </h2>
                     {(() => {
                       const estado = getEstadoIndicador(bultoInfo.codigo);
                       return (
-                        <span className={`text-2xl font-bold ${estado.color}`}>
+                        <span className={`text-base font-bold ${estado.color}`}>
                           {estado.icon}
                         </span>
                       );
@@ -252,104 +382,251 @@ function GestionBultos({ onBack, codigoBultoInicial }) {
               </div>
 
               {/* Grid de información */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
                 <div>
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Factura</p>
-                      <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                        {bultoInfo.factura}
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">N° OV</p>
+                      <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                        {bultoInfo.ov || '-'}
+                      </p>
+                    </div>
+                    {bultoInfo.ovInfo && (
+                      <div className="pt-1 space-y-1.5">
+                        {[
+                          { label: 'Fecha OV', value: formatDateTime(bultoInfo.ovInfo['Fecha OV']) },
+                          { label: 'Estado OV', value: bultoInfo.ovInfo['Estado OV'] || '-' },
+                          { label: 'Cliente', value: bultoInfo.ovInfo.Cliente || '-' },
+                          { label: 'Estratificación', value: bultoInfo.ovInfo.Estratificación || '-' },
+                          { label: 'Región', value: bultoInfo.ovInfo['Región'] || '-' },
+                          { label: 'Comuna', value: bultoInfo.ovInfo.Comuna || '-' },
+                          { label: 'Dirección', value: bultoInfo.ovInfo.Direccion || '-' },
+                          { label: 'Ruta OV', value: bultoInfo.ovInfo['Ruta OV'] || '-' },
+                        ].map((item) => (
+                          <div
+                            key={item.label}
+                            className="grid grid-cols-[110px_1fr] gap-2 items-start"
+                          >
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                              {item.label}
+                            </p>
+                            <p className="text-[11px] font-medium text-gray-900 dark:text-gray-100 break-words">
+                              {item.value}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">Factura</p>
+                      <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                        {bultoInfo.factura || '-'}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Fecha Documento</p>
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {new Date(bultoInfo.fechaDocumento).toLocaleDateString('es-CL')}
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">Fecha Documento</p>
+                      <p className="text-xs font-medium text-gray-900 dark:text-gray-100">
+                        {formatDate(bultoInfo.fechaDocumento)}
                       </p>
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">N° OV</p>
-                      <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                        {bultoInfo.ov}
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        Total bultos (OV)
+                      </p>
+                      <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                        {(() => getMetricasOV().total)()}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Fecha OV</p>
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {new Date(bultoInfo.fechaOV).toLocaleDateString('es-CL')}
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        Facturas (OV)
+                      </p>
+                      <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                        {(() => getMetricasOV().facturasOV)()}
                       </p>
                     </div>
-                  </div>
-                </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                          Ingresados
+                        </p>
+                        <p className="text-sm font-bold text-primary-600 dark:text-primary-400">
+                          {(() => getMetricasOV().ingresados)()}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                          Faltan
+                        </p>
+                        <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                          {(() => getMetricasOV().faltan)()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                          Facturados
+                        </p>
+                        <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                          {(() => getMetricasOV().facturados)()}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                          Sin factura
+                        </p>
+                        <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                          {(() => getMetricasOV().sinFactura)()}
+                        </p>
+                      </div>
+                    </div>
 
-                <div>
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Bultos Ingresados</p>
-                      <p className="text-lg font-bold text-primary-600 dark:text-primary-400">
-                        {(() => {
-                          const ingresados = [bultoInfo.codigo, ...otrosBultos.map(b => b.codigo)].filter(
-                            codigo => estadoHistorico[codigo]
-                          ).length;
-                          const total = [bultoInfo.codigo, ...otrosBultos.map(b => b.codigo)].length;
-                          return `${ingresados}/${total}`;
-                        })()}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Bultos en Factura</p>
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {bultoInfo.totalEnFactura} bultos
-                      </p>
-                    </div>
                   </div>
                 </div>
               </div>
+
+              {/* Integración WMS -> SAP (si existe) */}
+              {bultoInfo.wmsIntegracion && (
+                <div
+                  className={`mt-2 rounded-lg border p-3 ${
+                    bultoInfo.wmsIntegracion.mensaje_error
+                      ? 'bg-danger-50 dark:bg-danger-900 border-danger-200 dark:border-danger-700'
+                      : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                  }`}
+                >
+                  <p className="text-[11px] text-gray-600 dark:text-gray-300 uppercase tracking-wide mb-1">
+                    Integración WMS → SAP
+                  </p>
+                  <p className="text-xs text-gray-800 dark:text-gray-100">
+                    Estado: <span className="font-semibold">{bultoInfo.wmsIntegracion.estado || '-'}</span>
+                    {bultoInfo.wmsIntegracion.codigo_error ? (
+                      <span className="ml-2 text-gray-600 dark:text-gray-300">
+                        Código: <span className="font-semibold">{bultoInfo.wmsIntegracion.codigo_error}</span>
+                      </span>
+                    ) : null}
+                    {bultoInfo.wmsIntegracion.fecha ? (
+                      <span className="ml-2 text-gray-600 dark:text-gray-300">
+                        Fecha: <span className="font-semibold">{formatDateTime(bultoInfo.wmsIntegracion.fecha)}</span>
+                      </span>
+                    ) : null}
+                  </p>
+                  {bultoInfo.wmsIntegracion.mensaje_error ? (
+                    <p className="text-xs text-danger-700 dark:text-danger-200 mt-2 whitespace-pre-wrap">
+                      {bultoInfo.wmsIntegracion.mensaje_error}
+                    </p>
+                  ) : null}
+                </div>
+              )}
             </div>
 
-            {/* Otros bultos en la factura */}
-            {otrosBultos.length > 0 && (
-              <div className="card">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                  📦 Otros Bultos en Factura {bultoInfo.factura}
-                  <span className="text-sm font-normal text-gray-600 dark:text-gray-400 ml-2">
-                    ({otrosBultos.length} bultos adicionales)
-                  </span>
-                </h3>
+            {/* Bultos de la OV agrupados por factura / sin factura */}
+            {gruposBultos.length > 0 && (
+              <div className="space-y-3">
+                {gruposBultos.map((grupo, idxGrupo) => {
+                  const tituloGrupo = grupo.factura ? `Factura ${grupo.factura}` : 'Sin factura';
+                  const count = (grupo.bultos || []).length;
+                  const groupKey = grupo.factura ? String(grupo.factura) : '__SIN_FACTURA__';
+                  const colapsado = !!gruposColapsados[groupKey];
+                  const codigosGrupo = (grupo.bultos || []).map((b) => b.codigo).filter(Boolean);
+                  const conteoGrupo = getConteoIngresados(codigosGrupo);
+                  return (
+                    <div key={idxGrupo} className="card p-4">
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                          📦 {tituloGrupo}
+                          <span className="text-xs font-normal text-gray-600 dark:text-gray-400 ml-2">
+                            ({count} bultos)
+                            {' · '}Ingresados: {conteoGrupo.ingresados}
+                            {' · '}Faltan: {conteoGrupo.faltan}
+                            {grupo.esPrincipal ? ' · del bulto escaneado' : ''}
+                          </span>
+                        </h3>
 
-                <div className="space-y-2">
-                  {otrosBultos.map((bulto, idx) => {
-                    const estado = getEstadoIndicador(bulto.codigo);
-                    return (
-                      <div 
-                        key={idx} 
-                        className={`flex items-center gap-3 p-3 ${estado.bg} rounded-lg border ${
-                          estadoHistorico[bulto.codigo] ? 'border-success-200' : 'border-danger-200'
-                        }`}
-                      >
-                        <div className={`text-2xl font-bold ${estado.color}`}>
-                          {estado.icon}
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900 dark:text-gray-100">
-                            {bulto.codigo}
-                          </p>
-                          <p className="text-xs text-gray-600 dark:text-gray-400">
-                            Factura: {bulto.factura} | Cantidad: {bulto.cantidadBultos}
-                          </p>
-                        </div>
-                        <span className={`badge ${estado.bg} ${estado.color} text-xs font-semibold`}>
-                          {estado.label}
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setGruposColapsados((prev) => ({
+                              ...prev,
+                              [groupKey]: !prev[groupKey],
+                            }))
+                          }
+                          className="text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 inline-flex items-center gap-1"
+                          aria-expanded={!colapsado}
+                        >
+                          {colapsado ? 'Mostrar' : 'Ocultar'}
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            aria-hidden="true"
+                            className={`transition-transform ${colapsado ? '' : 'rotate-180'}`}
+                          >
+                            <path
+                              d="M6 9l6 6 6-6"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </button>
                       </div>
-                    );
-                  })}
-                </div>
+
+                      {!colapsado && (
+                        <div className="space-y-2">
+                          {(grupo.bultos || []).map((bulto, idx) => {
+                            const estado = getEstadoIndicador(bulto.codigo);
+                            const esEscaneado =
+                              bultoInfo?.codigo &&
+                              bulto.codigo?.toUpperCase() === bultoInfo.codigo.toUpperCase();
+                            return (
+                              <div
+                                key={`${idxGrupo}-${idx}`}
+                                className={`flex items-center gap-3 px-3 py-1.5 ${estado.bg} rounded-lg border ${
+                                  estadoHistorico[bulto.codigo] ? 'border-success-200' : 'border-danger-200'
+                                }`}
+                              >
+                                <div className={`text-base font-bold ${estado.color}`}>
+                                  {estado.icon}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                                      {bulto.codigo}
+                                    </p>
+                                    {esEscaneado && (
+                                      <span className="badge bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-100 text-[11px]">
+                                        Escaneado
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[11px] text-gray-600 dark:text-gray-400">
+                                    Factura: {bulto.factura || '-'} | OV: {bulto.ov || '-'}
+                                  </p>
+                                </div>
+                                <span className={`badge ${estado.bg} ${estado.color} text-xs font-semibold`}>
+                                  {estado.label}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
 
@@ -365,7 +642,7 @@ function GestionBultos({ onBack, codigoBultoInicial }) {
                 onClick={() => {
                   setCodigoBulto('');
                   setBultoInfo(null);
-                  setOtrosBultos([]);
+                  setGruposBultos([]);
                   setEstadoHistorico({});
                 }}
                 className="btn-outline flex-1"
@@ -412,12 +689,9 @@ function GestionBultos({ onBack, codigoBultoInicial }) {
 
         {/* Estado vacío */}
         {!bultoInfo && !loading && (
-          <div className="card text-center py-12">
+          <div className="card text-center py-8">
             <p className="text-lg text-gray-600 dark:text-gray-400 mb-2">
               📦 Ingresa un código de bulto para comenzar
-            </p>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Los datos se cargarán directamente desde HANA
             </p>
           </div>
         )}

@@ -46,6 +46,7 @@ function Home({ onLogout, usuario }) {
           setCurrentPage('home');
         }}
         codigoBultoInicial={codigoBultoABuscar}
+        usuario={usuario}
       />
     );
   }
@@ -55,6 +56,7 @@ function Home({ onLogout, usuario }) {
     return (
       <Historico 
         onBack={() => setCurrentPage('home')}
+        usuario={usuario}
         onBultoSelected={(codigo) => {
           // Guardar el código y ir a gestión de bultos
           setCodigoBultoABuscar(codigo);
@@ -77,8 +79,35 @@ function Home({ onLogout, usuario }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="section-title mb-0">Gestión de Bultos</h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <h1 className="mb-0 inline-flex items-center gap-2 text-2xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
+                <svg
+                  className="h-7 w-7 text-primary-600"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M3.5 7.2 12 3l8.5 4.2v9.6L12 21l-8.5-4.2V7.2Z"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M12 21V12.2"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M3.8 7.3 12 11.4l8.2-4.1"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <span>Gestión de Bultos</span>
+              </h1>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
                 Bienvenido, {usuario?.usuario || 'Usuario'}
               </p>
             </div>
@@ -96,8 +125,12 @@ function Home({ onLogout, usuario }) {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Grid de Opciones */}
         <div>
-          <h2 className="section-title mb-2">¿Qué deseas hacer?</h2>
-          <p className="section-subtitle">Selecciona una opción para continuar</p>
+          <h2 className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100 mb-2">
+            ¿Qué deseas hacer?
+          </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+            Selecciona una opción para continuar
+          </p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
             {menuOptions.map((option) => (
@@ -108,9 +141,6 @@ function Home({ onLogout, usuario }) {
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="text-5xl">{option.icono}</div>
-                  <div className={`badge badge-${option.color}`}>
-                    Disponible
-                  </div>
                 </div>
 
                 <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">

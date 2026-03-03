@@ -18,8 +18,8 @@ const CREDENCIALES_DEFAULT = {
     ip: '192.168.75.6',
     usuario: 'user_bi',
     contraseña: 'A9CiQqFSz8',
-    puerto: 5432,
-    database: 'blueyonder_db',
+    puerto: 1433,
+    database: 'wms2024',
   },
   MYSQL: {
     host: 'localhost',
@@ -56,6 +56,8 @@ function cargarCredencialesDelEntorno() {
     credenciales.BLUEYONDER.contraseña = process.env.BLUEYONDER_PASSWORD;
   if (process.env.BLUEYONDER_PORT)
     credenciales.BLUEYONDER.puerto = parseInt(process.env.BLUEYONDER_PORT);
+  if (process.env.BLUEYONDER_DATABASE)
+    credenciales.BLUEYONDER.database = process.env.BLUEYONDER_DATABASE;
 
   // Variables MYSQL
   if (process.env.MYSQL_HOST) credenciales.MYSQL.host = process.env.MYSQL_HOST;

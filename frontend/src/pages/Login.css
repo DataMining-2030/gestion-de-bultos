@@ -12,6 +12,90 @@
   animation: slideUp 0.3s ease-out;
 }
 
+.login-bg {
+  background:
+    radial-gradient(900px 420px at 50% 0%, rgba(37, 99, 235, 0.12), rgba(255, 255, 255, 0) 70%),
+    linear-gradient(180deg, #f8fafc 0%, #ffffff 45%, #f8fafc 100%);
+}
+
+.login-card {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(226, 232, 240, 1);
+  border-radius: 18px;
+  box-shadow:
+    0 30px 60px rgba(15, 23, 42, 0.08),
+    0 2px 8px rgba(15, 23, 42, 0.05);
+  backdrop-filter: blur(6px);
+}
+
+.login-label {
+  font-size: 11px;
+  color: #334155;
+  font-weight: 600;
+}
+
+.login-input {
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  transition: box-shadow 150ms ease, border-color 150ms ease;
+}
+
+.login-input:focus-within {
+  border-color: rgba(37, 99, 235, 0.55);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+.login-input__field {
+  outline: none;
+  width: 100%;
+  background: transparent;
+  font-size: 14px;
+  color: #0f172a;
+  border: 0;
+  box-shadow: none;
+}
+
+.login-input__placeholder {
+  color: #94a3b8;
+}
+
+.login-submit {
+  height: 46px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 14px;
+  background: linear-gradient(90deg, #2563eb 0%, #4f46e5 100%);
+  box-shadow:
+    0 18px 30px rgba(37, 99, 235, 0.18),
+    0 5px 12px rgba(79, 70, 229, 0.14);
+  transition: transform 120ms ease, filter 120ms ease;
+}
+
+.login-submit:active {
+  transform: translateY(1px);
+}
+
+.login-signature {
+  margin-top: 22px;
+  text-align: center;
+  font-size: 10px;
+  line-height: 1.35;
+  color: #94a3b8; /* slate-400 */
+}
+
+.login-signature strong {
+  font-weight: 600;
+}
+
+.login-signature__brand {
+  color: #2563eb; /* blue-600 */
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 @keyframes slideUp {
   from {
     opacity: 0;
