@@ -216,6 +216,19 @@ async function main() {
         console.log(red('  ❌ No se encontró GH_TOKEN en .env. No se puede publicar en GitHub Releases.'));
         console.log(yellow('  ℹ️  Puedes compilar manualmente con: npm run dist:win'));
       } else {
+        // Limpiar archivos viejos de /dist antes de compilar
+        const distDir = path.join(ROOT, 'dist');
+        if (fs.existsSync(distDir)) {
+          const oldFiles = fs.readdirSync(distDir).filter((f) =>
+            f.endsWith('.exe') || f.endsWith('.blockmap') || f === 'latest.yml'
+          );
+          if (oldFiles.length > 0) {
+            console.log(dim(`  🧹 Limpiando ${oldFiles.length} archivo(s) viejo(s) de /dist...`));
+            for (const f of oldFiles) {
+              try { fs.unlinkSync(path.join(distDir, f)); } catch (_) {}
+            }
+          }
+        }
         // Inyectar GH_TOKEN en el entorno del proceso hijo
         const buildResult = spawnSync(
           'npm run dist:win -- --publish always',
