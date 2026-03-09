@@ -68,7 +68,9 @@
     "publish": {
       "provider": "github",
       "owner": "DataMining-2030",
-      "repo": "gestion-de-bultos"
+      "repo": "gestion-de-bultos",
+      "draft": false,
+      "releaseType": "release"
     }
   }
 }
