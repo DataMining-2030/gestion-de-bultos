@@ -498,46 +498,54 @@ function GestionBultos({ onBack, codigoBultoInicial, usuario }) {
                 </div>
               </div>
 
-              {/* Integración WMS -> SAP (si existe) */}
-              {bultoInfo.wmsIntegracion && (
+              {/* Acción Recomendada + Integración WMS (siempre visibles si existen) */}
+              {(bultoInfo.accionRecomendada || bultoInfo.wmsIntegracion) && (
                 <div
                   className={`mt-2 rounded-lg border p-3 ${
-                    bultoInfo.wmsIntegracion.mensaje_error
+                    bultoInfo.wmsIntegracion?.mensaje_error
                       ? 'bg-danger-50 dark:bg-danger-900 border-danger-200 dark:border-danger-700'
                       : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
                   }`}
                 >
                   <p className="text-[11px] text-gray-600 dark:text-gray-300 uppercase tracking-wide mb-1">
-                    Integración WMS → SAP
+                    {bultoInfo.wmsIntegracion ? 'Integración WMS → SAP' : 'Acción Recomendada'}
                   </p>
+
+                  {/* Acción: siempre visible si existe, independiente del WMS */}
                   {bultoInfo.accionRecomendada && (
                     <p className="text-xs text-gray-800 dark:text-gray-100 mb-1">
                       Acción: <span className="font-semibold">{bultoInfo.accionRecomendada}</span>
                     </p>
                   )}
-                  <p className="text-xs text-gray-800 dark:text-gray-100">
-                    Estado: <span className="font-semibold">{bultoInfo.wmsIntegracion.estado || '-'}</span>
-                    {bultoInfo.wmsIntegracion.codigo_error ? (
-                      <span className="ml-2 text-gray-600 dark:text-gray-300">
-                        Código: <span className="font-semibold">{bultoInfo.wmsIntegracion.codigo_error}</span>
-                      </span>
-                    ) : null}
-                    {bultoInfo.wmsIntegracion.tipo_error ? (
-                      <span className="ml-2 text-gray-600 dark:text-gray-300">
-                        Motivo: <span className="font-semibold">{bultoInfo.wmsIntegracion.tipo_error}</span>
-                      </span>
-                    ) : null}
-                    {bultoInfo.wmsIntegracion.fecha ? (
-                      <span className="ml-2 text-gray-600 dark:text-gray-300">
-                        Fecha: <span className="font-semibold">{formatDateTime(bultoInfo.wmsIntegracion.fecha)}</span>
-                      </span>
-                    ) : null}
-                  </p>
-                  {(bultoInfo.wmsIntegracion.mensaje_usuario || bultoInfo.wmsIntegracion.mensaje_error) ? (
-                    <p className="text-xs text-danger-700 dark:text-danger-200 mt-2 whitespace-pre-wrap">
-                      {bultoInfo.wmsIntegracion.mensaje_usuario || bultoInfo.wmsIntegracion.mensaje_error}
-                    </p>
-                  ) : null}
+
+                  {/* Detalle WMS: solo si hay datos WMS */}
+                  {bultoInfo.wmsIntegracion && (
+                    <>
+                      <p className="text-xs text-gray-800 dark:text-gray-100">
+                        Estado: <span className="font-semibold">{bultoInfo.wmsIntegracion.estado || '-'}</span>
+                        {bultoInfo.wmsIntegracion.codigo_error ? (
+                          <span className="ml-2 text-gray-600 dark:text-gray-300">
+                            Código: <span className="font-semibold">{bultoInfo.wmsIntegracion.codigo_error}</span>
+                          </span>
+                        ) : null}
+                        {bultoInfo.wmsIntegracion.tipo_error ? (
+                          <span className="ml-2 text-gray-600 dark:text-gray-300">
+                            Motivo: <span className="font-semibold">{bultoInfo.wmsIntegracion.tipo_error}</span>
+                          </span>
+                        ) : null}
+                        {bultoInfo.wmsIntegracion.fecha ? (
+                          <span className="ml-2 text-gray-600 dark:text-gray-300">
+                            Fecha: <span className="font-semibold">{formatDateTime(bultoInfo.wmsIntegracion.fecha)}</span>
+                          </span>
+                        ) : null}
+                      </p>
+                      {(bultoInfo.wmsIntegracion.mensaje_usuario || bultoInfo.wmsIntegracion.mensaje_error) ? (
+                        <p className="text-xs text-danger-700 dark:text-danger-200 mt-2 whitespace-pre-wrap">
+                          {bultoInfo.wmsIntegracion.mensaje_usuario || bultoInfo.wmsIntegracion.mensaje_error}
+                        </p>
+                      ) : null}
+                    </>
+                  )}
                 </div>
               )}
             </div>
