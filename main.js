@@ -3,10 +3,12 @@ const isDev = require('electron-is-dev');
 const path = require('path');
 const fs = require('fs/promises');
 const fssync = require('fs');
+const http = require('http');
 const { fork } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 
 let mainWindow;
+let splashWindow = null;
 let backendProc = null;
 let logsDir = null;
 let mainLogPath = null;
@@ -126,6 +128,79 @@ function iniciarBackendProduccion() {
   }
 }
 
+// ── Splash window ──────────────────────────────────────────────────
+function createSplashWindow() {
+  splashWindow = new BrowserWindow({
+    width: 380,
+    height: 280,
+    frame: false,
+    resizable: false,
+    center: true,
+    show: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+  splashWindow.loadFile(path.join(__dirname, 'splash.html'));
+  splashWindow.setMenuBarVisibility(false);
+
+  // Inyectar la version en el splash
+  splashWindow.webContents.once('did-finish-load', () => {
+    const ver = app.getVersion ? app.getVersion() : '-';
+    try {
+      splashWindow.webContents.executeJavaScript(
+        `typeof setVersion === 'function' && setVersion(${JSON.stringify(ver)})`
+      ).catch(() => {});
+    } catch (_) {}
+  });
+}
+
+function setSplashStatus(msg, pct, cls) {
+  if (!splashWindow || splashWindow.isDestroyed()) return;
+  try {
+    const escaped = JSON.stringify(msg);
+    const pctJs = pct != null ? String(pct) : 'null';
+    const clsJs = cls ? JSON.stringify(cls) : 'null';
+    splashWindow.webContents.executeJavaScript(
+      `typeof setStatus === 'function' && setStatus(${escaped}, ${pctJs}, ${clsJs})`
+    ).catch(() => {});
+  } catch (_) {}
+}
+
+function closeSplash() {
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.close();
+    splashWindow = null;
+  }
+}
+
+// Espera hasta que el backend responda en el puerto dado
+async function waitForBackend(port, timeoutMs) {
+  port = port || 5000;
+  timeoutMs = timeoutMs || 30000;
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const ok = await new Promise((resolve) => {
+      try {
+        const req = http.get(
+          { hostname: '127.0.0.1', port: port, path: '/', timeout: 1500 },
+          (res) => { res.resume(); resolve(res.statusCode < 500); }
+        );
+        req.on('error', () => resolve(false));
+        req.on('timeout', () => { req.destroy(); resolve(false); });
+      } catch (_) {
+        resolve(false);
+      }
+    });
+    if (ok) return true;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  return false;
+}
+
 const createWindow = () => {
   // Evitar problemas de encoding con tildes en algunas configuraciones
   try {
@@ -138,6 +213,8 @@ const createWindow = () => {
     width: 1200,
     height: 800,
     title: '',
+    show: false,
+    backgroundColor: '#f8fafc',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -279,8 +356,59 @@ app.on('ready', async () => {
     appendLog(mainLogPath, `unhandledRejection: ${err && err.stack ? err.stack : String(err)}`);
   });
 
-  iniciarBackendProduccion();
+  // 1. Mostrar splash de inmediato
+  createSplashWindow();
+
+  if (!isDev) {
+    // 2. Arrancar backend
+    setSplashStatus('Iniciando backend...', 15);
+    iniciarBackendProduccion();
+
+    // 3. Esperar a que el backend responda (max 35 s)
+    setSplashStatus('Esperando backend...', 30);
+    const backendOk = await waitForBackend(5000, 35000);
+
+    if (backendOk) {
+      appendLog(mainLogPath, '[splash] Backend listo');
+      setSplashStatus('Backend listo', 55, 'ok');
+      await new Promise((r) => setTimeout(r, 400));
+    } else {
+      appendLog(mainLogPath, '[splash] Backend no respondio en 35 s');
+      setSplashStatus('Backend no respondio - continuando...', 55, 'err');
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+  } else {
+    // Modo desarrollo: el backend corre por separado
+    setSplashStatus('Modo desarrollo', 55);
+    await new Promise((r) => setTimeout(r, 500));
+  }
+
+  // 4. Crear la ventana principal (oculta)
+  setSplashStatus('Cargando aplicacion...', 75);
   createWindow();
+
+  // 5. Cuando el frontend termina de cargar -> cerrar splash y mostrar app
+  mainWindow.webContents.once('did-finish-load', () => {
+    setSplashStatus('Listo', 100, 'ok');
+    appendLog(mainLogPath, '[splash] Frontend listo - cerrando splash');
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.show();
+        mainWindow.focus();
+      }
+      closeSplash();
+    }, 350);
+  });
+
+  // Seguro: si did-finish-load nunca llega (timeout 15 s), mostrar igual
+  setTimeout(() => {
+    if (splashWindow) {
+      appendLog(mainLogPath, '[splash] Timeout - mostrando ventana de todas formas');
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.show();
+      closeSplash();
+    }
+  }, 15000);
+
   initAutoUpdater();
 });
 

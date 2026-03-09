@@ -17,7 +17,8 @@
     "pack": "npm run build && npm run build:backend:prod && electron-builder --dir",
     "dist": "npm run build && npm run build:backend:prod && electron-builder",
     "dist:win": "npm run dist -- --win --x64",
-    "release": "node scripts/release.js"
+    "release": "node scripts/release.js",
+    "dist:publish": "node scripts/publish.js"
   },
   "dependencies": {
     "electron-is-dev": "^2.0.0",
@@ -39,6 +40,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "splash.html",
       "build/**",
       "backend/**",
       "package.json"
