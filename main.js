@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs/promises');
 const fssync = require('fs');
 const { fork } = require('child_process');
+const { autoUpdater } = require('electron-updater');
 
 let mainWindow;
 let backendProc = null;
@@ -184,6 +185,89 @@ const createWindow = () => {
   });
 };
 
+// ── Auto-updater (solo producción) ───────────────────────────────────────────
+function initAutoUpdater() {
+  if (isDev) return; // No correr en desarrollo
+
+  // Silencioso al verificar; solo mostrar diálogos cuando hay novedad
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('checking-for-update', () => {
+    appendLog(mainLogPath, '[updater] Verificando actualizaciones...');
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    appendLog(mainLogPath, `[updater] Actualización disponible: v${info.version}`);
+    dialog
+      .showMessageBox(mainWindow, {
+        type: 'info',
+        title: 'Actualización disponible',
+        message: `Hay una nueva versión disponible: v${info.version}`,
+        detail: 'La actualización se descargará en segundo plano. Te avisaremos cuando esté lista para instalar.',
+        buttons: ['Descargar ahora', 'Más tarde'],
+        defaultId: 0,
+        cancelId: 1,
+      })
+      .then(({ response }) => {
+        if (response === 0) {
+          appendLog(mainLogPath, '[updater] Usuario aceptó descargar la actualización.');
+          autoUpdater.downloadUpdate();
+        } else {
+          appendLog(mainLogPath, '[updater] Usuario pospuso la descarga.');
+        }
+      })
+      .catch((e) => appendLog(mainLogPath, `[updater] Error en diálogo update-available: ${e.message}`));
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    appendLog(mainLogPath, '[updater] La aplicación está actualizada.');
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    const pct = Math.round(progress.percent);
+    appendLog(mainLogPath, `[updater] Descargando... ${pct}%`);
+    // Mostrar progreso en la barra de título
+    try { mainWindow && mainWindow.setProgressBar(pct / 100); } catch (_) {}
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    try { mainWindow && mainWindow.setProgressBar(-1); } catch (_) {}
+    appendLog(mainLogPath, `[updater] Actualización v${info.version} descargada. Lista para instalar.`);
+    dialog
+      .showMessageBox(mainWindow, {
+        type: 'info',
+        title: 'Actualización lista',
+        message: `v${info.version} descargada y lista para instalar.`,
+        detail: '¿Deseas reiniciar la aplicación ahora para aplicar la actualización?',
+        buttons: ['Reiniciar ahora', 'Más tarde'],
+        defaultId: 0,
+        cancelId: 1,
+      })
+      .then(({ response }) => {
+        if (response === 0) {
+          appendLog(mainLogPath, '[updater] Instalando actualización y reiniciando...');
+          autoUpdater.quitAndInstall(false, true);
+        } else {
+          appendLog(mainLogPath, '[updater] Usuario pospuso el reinicio. Se instalará al cerrar.');
+        }
+      })
+      .catch((e) => appendLog(mainLogPath, `[updater] Error en diálogo update-downloaded: ${e.message}`));
+  });
+
+  autoUpdater.on('error', (err) => {
+    appendLog(mainLogPath, `[updater] Error: ${err && err.message ? err.message : String(err)}`);
+    try { mainWindow && mainWindow.setProgressBar(-1); } catch (_) {}
+  });
+
+  // Verificar 3 segundos después de que la ventana esté visible
+  setTimeout(() => {
+    autoUpdater.checkForUpdates().catch((e) => {
+      appendLog(mainLogPath, `[updater] checkForUpdates falló: ${e.message}`);
+    });
+  }, 3000);
+}
+
 app.on('ready', async () => {
   await ensureLogs();
   appendLog(mainLogPath, 'App ready');
@@ -197,6 +281,7 @@ app.on('ready', async () => {
 
   iniciarBackendProduccion();
   createWindow();
+  initAutoUpdater();
 });
 
 app.on('window-all-closed', () => {
