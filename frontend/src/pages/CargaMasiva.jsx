@@ -54,7 +54,7 @@ function CargaMasiva({ onBack, usuario }) {
             <div className="flex items-start justify-between mb-4">
               <div className="bg-primary-50 dark:bg-gray-800 p-2 rounded-xl shadow-sm border border-primary-100 dark:border-gray-700 group-hover:scale-110 group-hover:shadow-md transition-all">
                 <img 
-                  src="/Pistola.png" 
+                  src="./Pistola.png" 
                   alt="Escáner" 
                   className="w-12 h-12 object-contain"
                 />

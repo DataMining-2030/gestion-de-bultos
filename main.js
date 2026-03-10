@@ -171,6 +171,12 @@ app.on('ready', async () => {
   // 2. Iniciar procesos internos mientras el splash es visible
   const initProcesses = (async () => {
     if (!isDev) {
+      setSplashStatus('Buscando actualizaciones...', 20);
+      try {
+        await autoUpdater.checkForUpdatesAndNotify();
+      } catch (e) {
+        appendLog(mainLogPath, `Update error: ${e.message}`);
+      }
       setSplashStatus('Arrancando servicios...', 30);
       iniciarBackendProduccion();
       await waitForBackend(5000, 30000);
@@ -202,10 +208,6 @@ app.on('ready', async () => {
       splashWindow.close();
     }
   }, remaining);
-
-  if (!isDev) {
-    autoUpdater.checkForUpdatesAndNotify().catch(e => appendLog(mainLogPath, `Update error: ${e.message}`));
-  }
 });
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
