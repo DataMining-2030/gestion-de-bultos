@@ -10,13 +10,23 @@ function Login({ onLoginSuccess }) {
   const [success, setSuccess] = useState('');
 
   // Firma (mantener simple y propia del proyecto)
+  const [appVersion, setAppVersion] = useState('...');
+
+  React.useEffect(() => {
+    if (window.electron && typeof window.electron.getVersion === 'function') {
+      window.electron.getVersion().then(v => setAppVersion(`v${v}`));
+    } else {
+      setAppVersion('v1.0.7'); // Fallback razonable
+    }
+  }, []);
+
   const firma = useMemo(
     () => ({
       year: new Date().getFullYear(),
       product: 'Gestión de Bultos',
-      version: 'v1.0.0',
+      version: appVersion,
     }),
-    []
+    [appVersion]
   );
 
   const handleSubmit = async (e) => {
@@ -278,9 +288,8 @@ function Login({ onLoginSuccess }) {
             <button
               type="submit"
               disabled={loading}
-              className={`login-submit w-full text-white flex items-center justify-center gap-2 ${
-                loading ? 'opacity-70 cursor-not-allowed' : ''
-              }`}
+              className={`login-submit w-full text-white flex items-center justify-center gap-2 ${loading ? 'opacity-70 cursor-not-allowed' : ''
+                }`}
             >
               {loading ? (
                 <span className="flex items-center justify-center">

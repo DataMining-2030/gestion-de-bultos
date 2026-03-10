@@ -9,4 +9,5 @@ contextBridge.exposeInMainWorld('electron', {
    */
   saveXlsx: (payload) => ipcRenderer.invoke('save-xlsx', payload),
   openLogsFolder: () => ipcRenderer.invoke('open-logs-folder'),
+  getVersion: () => ipcRenderer.invoke('get-version'),
 });
