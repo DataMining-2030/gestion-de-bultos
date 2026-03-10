@@ -17,6 +17,9 @@ function Historico({ onBack, onBultoSelected, usuario }) {
     fecha_documento: 160, // w-40
     wms_tipo_error: 176, // w-44
     accion_recomendada: 220,
+    bultos_ov: 112,
+    ingresados_ov: 112,
+    facturas_ov: 112,
     usuario: 112, // w-28
     fecha_ingreso: 160, // w-40
   };
@@ -81,7 +84,7 @@ function Historico({ onBack, onBultoSelected, usuario }) {
       }
     };
   }, [resizing]);
-  
+
   const formatDate = (value) => {
     if (!value) return '-';
     const d = new Date(value);
@@ -112,13 +115,13 @@ function Historico({ onBack, onBultoSelected, usuario }) {
       setLoading(true);
       setError('');
       const response = await fetch('http://localhost:5000/api/historico/listar');
-      
+
       if (!response.ok) {
         throw new Error('Error al obtener histórico');
       }
 
       const datos = await response.json();
-      
+
       // Transformar datos de la BD a formato de tabla
       const bultosProcesados = datos.map((item) => ({
         id: item.id,
@@ -139,6 +142,9 @@ function Historico({ onBack, onBultoSelected, usuario }) {
         fecha_documento: formatDate(item.fecha_documento),
         wms_tipo_error: item.wms_tipo_error || '-',
         accion_recomendada: item.accion_recomendada || '-',
+        bultos_ov: item.bultos_ov || 0,
+        ingresados_ov: item.ingresados_ov || 0,
+        facturas_ov: item.facturas_ov || 0,
         usuario: item.usuario || '-',
         fecha_ingreso: formatDateTime(item.fecha_ingreso),
         fecha_ingreso_raw: item.fecha_ingreso ? new Date(item.fecha_ingreso) : null,
@@ -232,6 +238,9 @@ function Historico({ onBack, onBultoSelected, usuario }) {
       'Fecha Documento',
       'Motivo WMS',
       'Acción',
+      'Bultos OV',
+      'Ingresados OV',
+      'Facturas OV',
       'Usuario',
       'Ingreso',
     ];
@@ -251,6 +260,9 @@ function Historico({ onBack, onBultoSelected, usuario }) {
       b.fecha_documento,
       b.wms_tipo_error,
       b.accion_recomendada,
+      b.bultos_ov,
+      b.ingresados_ov,
+      b.facturas_ov,
       b.usuario,
       b.fecha_ingreso,
     ]);
@@ -272,6 +284,9 @@ function Historico({ onBack, onBultoSelected, usuario }) {
       { wch: 16 },
       { wch: 22 },
       { wch: 28 },
+      { wch: 12 },
+      { wch: 14 },
+      { wch: 12 },
       { wch: 14 },
       { wch: 18 },
     ];
@@ -318,7 +333,7 @@ function Historico({ onBack, onBultoSelected, usuario }) {
             total_registros: bultosFiltrados.length,
             filtros: filters,
           }),
-        }).catch(() => {});
+        }).catch(() => { });
       } catch (e) {
         // Ignorar: el archivo ya fue guardado
       }
@@ -558,10 +573,13 @@ function Historico({ onBack, onBultoSelected, usuario }) {
                       { key: 'fecha_documento', label: 'Fecha Documento' },
                       { key: 'wms_tipo_error', label: 'Motivo WMS' },
                       { key: 'accion_recomendada', label: 'Acción' },
+                      { key: 'bultos_ov', label: 'Bultos OV' },
+                      { key: 'ingresados_ov', label: 'Ingresados OV' },
+                      { key: 'facturas_ov', label: 'Facturas OV' },
                       { key: 'usuario', label: 'Usuario' },
                       { key: 'fecha_ingreso', label: 'Ingreso' },
                     ].map((c, idx) => {
-                      const totalCols = 16;
+                      const totalCols = 19;
                       const isLast = idx === totalCols - 1;
                       return (
                         <th
@@ -595,8 +613,8 @@ function Historico({ onBack, onBultoSelected, usuario }) {
                 <tbody className="table-body">
                   {bultosPaginados.length > 0 ? (
                     bultosPaginados.map((bulto) => (
-                      <tr 
-                        key={bulto.id} 
+                      <tr
+                        key={bulto.id}
                         className="table-row cursor-pointer hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
                         onClick={() => {
                           // Si viene onBultoSelected, lo usamos para ir a gestión
@@ -682,6 +700,15 @@ function Historico({ onBack, onBultoSelected, usuario }) {
                         >
                           {bulto.accion_recomendada}
                         </td>
+                        <td className="table-cell whitespace-nowrap text-center font-bold" style={{ width: colWidths.bultos_ov }}>
+                          {bulto.bultos_ov}
+                        </td>
+                        <td className="table-cell whitespace-nowrap text-center font-bold text-primary-600 dark:text-primary-400" style={{ width: colWidths.ingresados_ov }}>
+                          {bulto.ingresados_ov}
+                        </td>
+                        <td className="table-cell whitespace-nowrap text-center" style={{ width: colWidths.facturas_ov }}>
+                          {bulto.facturas_ov}
+                        </td>
                         <td className="table-cell whitespace-nowrap" style={{ width: colWidths.usuario }}>
                           {bulto.usuario}
                         </td>
@@ -695,10 +722,10 @@ function Historico({ onBack, onBultoSelected, usuario }) {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="16" className="table-cell text-center py-8">
+                      <td colSpan="19" className="table-cell text-center py-8">
                         <p className="text-gray-500 dark:text-gray-400">
                           {hasAnyFilter
-                            ? 'No hay bultos que coincidan con los filtros' 
+                            ? 'No hay bultos que coincidan con los filtros'
                             : 'No hay bultos en el histórico aún'}
                         </p>
                       </td>

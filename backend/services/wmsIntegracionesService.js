@@ -129,6 +129,7 @@ async function obtenerUltimaIntegracionSalidaPorBU(bu, opts = {}) {
         v.[interface],
         v.estado,
         v.trn_id,
+        -- Intentar extraer U_WMS_Bultos desde JSON
         CASE
           WHEN ISJSON(v.envio) = 1 THEN JSON_VALUE(v.envio, '$.U_WMS_Bultos')
           WHEN CHARINDEX('{', v.envio) > 0
@@ -136,17 +137,19 @@ async function obtenerUltimaIntegracionSalidaPorBU(bu, opts = {}) {
             THEN JSON_VALUE(SUBSTRING(v.envio, CHARINDEX('{', v.envio), LEN(v.envio)), '$.U_WMS_Bultos')
           ELSE NULL
         END AS u_wms_bultos,
+        v.envio,
         v.respuesta
       FROM dbo.v_integraciones v
       WHERE LTRIM(RTRIM(v.[interface])) = 'Salida Mercaderia'
         AND v.fecha >= DATEADD(day, -@daysBack, GETDATE())
     ),
-    exploded AS (
+
+    -- Camino 1: extraccion JSON (U_WMS_Bultos encontrado)
+    exploded_json AS (
       SELECT
         s.fecha,
         s.estado,
         s.trn_id,
-        -- U_WMS_Bultos viene como "BU1,BU2" y a veces con comillas extra: ""BU1,BU2""
         UPPER(
           LTRIM(RTRIM(
             REPLACE(REPLACE(x.value, '"', ''), '''', '')
@@ -154,33 +157,55 @@ async function obtenerUltimaIntegracionSalidaPorBU(bu, opts = {}) {
         ) AS bu,
         s.respuesta
       FROM src s
-      CROSS APPLY STRING_SPLIT(REPLACE(s.u_wms_bultos, ' ', ''), ',') x
+      CROSS APPLY STRING_SPLIT(REPLACE(ISNULL(s.u_wms_bultos, ''), ' ', ''), ';') x
       WHERE s.u_wms_bultos IS NOT NULL
+        AND LEN(LTRIM(RTRIM(x.value))) > 0
     ),
+
+    -- Camino 2 (fallback): el BU aparece en el texto de envio
+    --   cuando el parseo JSON no extrae U_WMS_Bultos
+    exploded_text AS (
+      SELECT DISTINCT
+        s.fecha,
+        s.estado,
+        s.trn_id,
+        @bu AS bu,
+        s.respuesta
+      FROM src s
+      WHERE s.u_wms_bultos IS NULL
+        AND CHARINDEX(@bu, UPPER(ISNULL(CAST(s.envio AS NVARCHAR(MAX)), ''))) > 0
+    ),
+
+    combined AS (
+      SELECT * FROM exploded_json WHERE bu = @bu
+      UNION ALL
+      SELECT * FROM exploded_text
+    ),
+
     parsed AS (
       SELECT
-        e.bu,
-        e.fecha,
-        e.estado,
-        e.trn_id,
-        e.respuesta,
+        c.bu,
+        c.fecha,
+        c.estado,
+        c.trn_id,
+        c.respuesta,
         CASE
-          WHEN e.respuesta IS NULL THEN NULL
-          WHEN ISJSON(e.respuesta) = 1 THEN JSON_VALUE(e.respuesta, '$.error.message')
-          WHEN CHARINDEX('{', e.respuesta) > 0
-            AND ISJSON(SUBSTRING(e.respuesta, CHARINDEX('{', e.respuesta), LEN(e.respuesta))) = 1
-            THEN JSON_VALUE(SUBSTRING(e.respuesta, CHARINDEX('{', e.respuesta), LEN(e.respuesta)), '$.error.message')
+          WHEN c.respuesta IS NULL THEN NULL
+          WHEN ISJSON(c.respuesta) = 1 THEN JSON_VALUE(c.respuesta, '$.error.message')
+          WHEN CHARINDEX('{', c.respuesta) > 0
+            AND ISJSON(SUBSTRING(c.respuesta, CHARINDEX('{', c.respuesta), LEN(c.respuesta))) = 1
+            THEN JSON_VALUE(SUBSTRING(c.respuesta, CHARINDEX('{', c.respuesta), LEN(c.respuesta)), '$.error.message')
           ELSE NULL
         END AS mensaje_error,
         CASE
-          WHEN e.respuesta IS NULL THEN NULL
-          WHEN ISJSON(e.respuesta) = 1 THEN JSON_VALUE(e.respuesta, '$.error.code')
-          WHEN CHARINDEX('{', e.respuesta) > 0
-            AND ISJSON(SUBSTRING(e.respuesta, CHARINDEX('{', e.respuesta), LEN(e.respuesta))) = 1
-            THEN JSON_VALUE(SUBSTRING(e.respuesta, CHARINDEX('{', e.respuesta), LEN(e.respuesta)), '$.error.code')
+          WHEN c.respuesta IS NULL THEN NULL
+          WHEN ISJSON(c.respuesta) = 1 THEN JSON_VALUE(c.respuesta, '$.error.code')
+          WHEN CHARINDEX('{', c.respuesta) > 0
+            AND ISJSON(SUBSTRING(c.respuesta, CHARINDEX('{', c.respuesta), LEN(c.respuesta))) = 1
+            THEN JSON_VALUE(SUBSTRING(c.respuesta, CHARINDEX('{', c.respuesta), LEN(c.respuesta)), '$.error.code')
           ELSE NULL
         END AS codigo_error
-      FROM exploded e
+      FROM combined c
     )
     SELECT TOP 1
       bu,
@@ -191,7 +216,6 @@ async function obtenerUltimaIntegracionSalidaPorBU(bu, opts = {}) {
       mensaje_error,
       codigo_error
     FROM parsed
-    WHERE bu = @bu
     ORDER BY fecha DESC;
   `;
 
