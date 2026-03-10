@@ -45,7 +45,8 @@
       "splash.html",
       "build/**",
       "backend/**",
-      "package.json"
+      "package.json",
+      "assets/**"
     ],
     "extraResources": [
       {

@@ -81,7 +81,7 @@ function Home({ onLogout, usuario }) {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="mb-0 inline-flex items-center gap-3 text-2xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
-                <img src="/camion.png" alt="Logo" className="h-10 w-auto object-contain" />
+                <img src="./camion.png" alt="Logo" className="h-10 w-auto object-contain" />
                 <span>Centro de Control de Despacho</span>
               </h1>
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">

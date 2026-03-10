@@ -94,7 +94,7 @@ function Login({ onLoginSuccess }) {
         {/* Título + Subtítulo */}
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center gap-3 text-2xl font-extrabold tracking-tight text-slate-900 mb-2">
-            <img src="/camion.png" alt="Logo Camión" className="h-12 w-auto object-contain drop-shadow-md" />
+            <img src="./camion.png" alt="Logo Camión" className="h-12 w-auto object-contain drop-shadow-md" />
             <span>Centro Control Despacho</span>
           </div>
           <div className="text-xs text-slate-500">Inicia sesión en tu cuenta</div>
