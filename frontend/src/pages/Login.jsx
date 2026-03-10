@@ -93,9 +93,9 @@ function Login({ onLoginSuccess }) {
       <div className="mx-auto w-full max-w-[460px] animate-slide-up">
         {/* Título + Subtítulo */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center gap-3 text-2xl font-extrabold tracking-tight text-slate-900 mb-2">
-            <img src="./camion.png" alt="Logo Camión" className="h-12 w-auto object-contain drop-shadow-md" />
-            <span>Centro Control Despacho</span>
+          <div className="flex flex-col items-center justify-center gap-4 text-2xl font-extrabold tracking-tight text-slate-900 mb-2">
+            <img src="./camion.png" alt="Logo Camión" className="h-[4.5rem] w-auto object-contain drop-shadow-md" />
+            <span className="text-center leading-tight">Centro de Control de<br />Despacho</span>
           </div>
           <div className="text-xs text-slate-500">Inicia sesión en tu cuenta</div>
         </div>
@@ -241,6 +241,7 @@ function Login({ onLoginSuccess }) {
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm text-red-700">{error}</p>
                   {typeof window !== 'undefined' &&
+                    window.location.hostname === 'localhost' &&
                     window.electron &&
                     typeof window.electron.openLogsFolder === 'function' && (
                       <button
@@ -259,6 +260,21 @@ function Login({ onLoginSuccess }) {
               <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50">
                 <p className="text-sm text-emerald-700">{success}</p>
               </div>
+            )}
+
+            {/* Acceso Rápido Dev */}
+            {typeof window !== 'undefined' && window.location.hostname === 'localhost' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setUsuario('david');
+                  setContraseña('123456');
+                }}
+                className="w-full text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 py-1 rounded-md font-semibold transition-colors mb-2"
+                title="Solo visible en entorno de desarrollo"
+              >
+                Auto-completar Dev (david)
+              </button>
             )}
 
             {/* Botón */}

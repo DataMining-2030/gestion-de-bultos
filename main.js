@@ -105,18 +105,34 @@ function createSplashWindow() {
   });
 
   return new Promise(resolve => {
-    // 1. Mostrar SOLO cuando el HTML esté completamente pintado
+    // Esperar a que el HTML esté renderizado y los assets (imagen) cargados
+    let isReady = false;
+    let isLoaded = false;
+
+    const tryShow = () => {
+      if (isReady && isLoaded && !splashWindow.isDestroyed()) {
+        // Pequeño timeout para asegurar que el motor de renderizado haya pintado la imagen
+        setTimeout(() => {
+          if (!splashWindow.isDestroyed()) {
+            splashWindow.show();
+            resolve();
+          }
+        }, 50);
+      }
+    };
+
     splashWindow.once('ready-to-show', () => {
-      splashWindow.show();
-      resolve();
+      isReady = true;
+      tryShow();
     });
 
-    // 2. Inyectar versión apenas el DOM cargue
     splashWindow.webContents.once('did-finish-load', () => {
+      isLoaded = true;
       const ver = app.getVersion ? app.getVersion() : '-';
       splashWindow.webContents.executeJavaScript(
         `typeof setVersion === 'function' && setVersion(${JSON.stringify(ver)})`
       ).catch(() => { });
+      tryShow();
     });
 
     splashWindow.loadFile(path.join(__dirname, 'splash.html'));
@@ -140,6 +156,9 @@ function createMainWindow() {
 }
 
 // --- Ciclo de Vida ---
+// Desactivar aceleración por hardware para evitar parpadeos y crashes del proceso de GPU al inicio
+app.disableHardwareAcceleration();
+
 app.on('ready', async () => {
   const startTime = Date.now();
   await ensureLogs();
@@ -166,6 +185,10 @@ app.on('ready', async () => {
 
   // 3. Garantizar tiempo mínimo y sincronización final
   await initProcesses;
+
+  // Esperar un poco extra para que la animación de la barra de progreso (1s) termine visualmente
+  await new Promise(r => setTimeout(r, 600));
+
   const elapsed = Date.now() - startTime;
   const remaining = Math.max(0, MIN_SPLASH_TIME - elapsed);
 
@@ -175,22 +198,8 @@ app.on('ready', async () => {
       mainWindow.focus();
     }
 
-    // Fade-out suave usando opacidad de sistema para el splash
     if (splashWindow && !splashWindow.isDestroyed()) {
-      let opacity = 1;
-      const fadeInterval = setInterval(() => {
-        if (!splashWindow || splashWindow.isDestroyed()) {
-          clearInterval(fadeInterval);
-          return;
-        }
-        opacity -= 0.05;
-        if (opacity <= 0) {
-          clearInterval(fadeInterval);
-          splashWindow.close();
-        } else {
-          splashWindow.setOpacity(opacity);
-        }
-      }, 15); // Transición rápida y muy fluida
+      splashWindow.close();
     }
   }, remaining);
 

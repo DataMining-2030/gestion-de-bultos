@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS cmk_bultos_historicos (
     bultos_ov INT DEFAULT 0,
     ingresados_ov INT DEFAULT 0,
     facturas_ov INT DEFAULT 0,
+    id_carga_masiva VARCHAR(50),
     INDEX idx_codigo (codigo_bulto),
     INDEX idx_factura (factura),
     INDEX idx_fecha_ingreso (fecha_ingreso)

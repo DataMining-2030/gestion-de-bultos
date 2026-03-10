@@ -17,9 +17,10 @@ function Historico({ onBack, onBultoSelected, usuario }) {
     fecha_documento: 160, // w-40
     wms_tipo_error: 176, // w-44
     accion_recomendada: 220,
-    bultos_ov: 112,
-    ingresados_ov: 112,
-    facturas_ov: 112,
+    bultos_ov: 120,
+    ingresados_ov: 150,
+    facturas_ov: 140,
+    id_carga_masiva: 180, // w-44
     usuario: 112, // w-28
     fecha_ingreso: 160, // w-40
   };
@@ -37,6 +38,7 @@ function Historico({ onBack, onBultoSelected, usuario }) {
     cliente: '',
     estratificacion: '',
     accion: '',
+    id_carga: '',
     fecha_ingreso: '',
   });
   const [currentPage, setCurrentPage] = useState(1);
@@ -145,6 +147,7 @@ function Historico({ onBack, onBultoSelected, usuario }) {
         bultos_ov: item.bultos_ov || 0,
         ingresados_ov: item.ingresados_ov || 0,
         facturas_ov: item.facturas_ov || 0,
+        id_carga_masiva: item.id_carga_masiva || '-',
         usuario: item.usuario || '-',
         fecha_ingreso: formatDateTime(item.fecha_ingreso),
         fecha_ingreso_raw: item.fecha_ingreso ? new Date(item.fecha_ingreso) : null,
@@ -169,6 +172,7 @@ function Historico({ onBack, onBultoSelected, usuario }) {
       cliente: norm(filters.cliente),
       estratificacion: norm(filters.estratificacion),
       accion: norm(filters.accion),
+      id_carga: norm(filters.id_carga),
       fecha_ingreso: String(filters.fecha_ingreso || '').trim(), // YYYY-MM-DD
     };
 
@@ -191,6 +195,7 @@ function Historico({ onBack, onBultoSelected, usuario }) {
       if (f.cliente && !norm(b.ov_cliente).includes(f.cliente)) return false;
       if (f.estratificacion && !norm(b.ov_estratificacion).includes(f.estratificacion)) return false;
       if (f.accion && !norm(b.accion_recomendada).includes(f.accion)) return false;
+      if (f.id_carga && !norm(b.id_carga_masiva).includes(f.id_carga)) return false;
 
       if (start && end) {
         const d = b.fecha_ingreso_raw instanceof Date ? b.fecha_ingreso_raw : null;
@@ -209,6 +214,7 @@ function Historico({ onBack, onBultoSelected, usuario }) {
     !!filters.cliente ||
     !!filters.estratificacion ||
     !!filters.accion ||
+    !!filters.id_carga ||
     !!filters.fecha_ingreso;
 
   // Paginación
@@ -241,6 +247,7 @@ function Historico({ onBack, onBultoSelected, usuario }) {
       'Bultos OV',
       'Ingresados OV',
       'Facturas OV',
+      'ID Carga Masiva',
       'Usuario',
       'Ingreso',
     ];
@@ -263,6 +270,7 @@ function Historico({ onBack, onBultoSelected, usuario }) {
       b.bultos_ov,
       b.ingresados_ov,
       b.facturas_ov,
+      b.id_carga_masiva,
       b.usuario,
       b.fecha_ingreso,
     ]);
@@ -287,6 +295,7 @@ function Historico({ onBack, onBultoSelected, usuario }) {
       { wch: 12 },
       { wch: 14 },
       { wch: 12 },
+      { wch: 22 },
       { wch: 14 },
       { wch: 18 },
     ];
@@ -382,7 +391,7 @@ function Historico({ onBack, onBultoSelected, usuario }) {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Filtros */}
         <div className="card mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-7 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-4">
             <div className="form-group">
               <label htmlFor="f_bulto" className="form-label">
                 Bulto
@@ -500,6 +509,23 @@ function Historico({ onBack, onBultoSelected, usuario }) {
                 className="input-field"
               />
             </div>
+            
+            <div className="form-group">
+              <label htmlFor="f_id_carga" className="form-label">
+                ID Carga Masiva
+              </label>
+              <input
+                id="f_id_carga"
+                type="text"
+                value={filters.id_carga}
+                onChange={(e) => {
+                  setFilters((p) => ({ ...p, id_carga: e.target.value }));
+                  setCurrentPage(1);
+                }}
+                placeholder="CM-2026..."
+                className="input-field"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -525,6 +551,7 @@ function Historico({ onBack, onBultoSelected, usuario }) {
                     cliente: '',
                     estratificacion: '',
                     accion: '',
+                    id_carga: '',
                     fecha_ingreso: '',
                   });
                   setCurrentPage(1);
@@ -576,10 +603,11 @@ function Historico({ onBack, onBultoSelected, usuario }) {
                       { key: 'bultos_ov', label: 'Bultos OV' },
                       { key: 'ingresados_ov', label: 'Ingresados OV' },
                       { key: 'facturas_ov', label: 'Facturas OV' },
+                      { key: 'id_carga_masiva', label: 'ID Carga Masiva' },
                       { key: 'usuario', label: 'Usuario' },
                       { key: 'fecha_ingreso', label: 'Ingreso' },
                     ].map((c, idx) => {
-                      const totalCols = 19;
+                      const totalCols = 20;
                       const isLast = idx === totalCols - 1;
                       return (
                         <th
@@ -708,6 +736,9 @@ function Historico({ onBack, onBultoSelected, usuario }) {
                         </td>
                         <td className="table-cell whitespace-nowrap text-center" style={{ width: colWidths.facturas_ov }}>
                           {bulto.facturas_ov}
+                        </td>
+                        <td className="table-cell whitespace-nowrap text-sm font-mono text-gray-500 bg-gray-100 dark:bg-gray-800" style={{ width: colWidths.id_carga_masiva }}>
+                          {bulto.id_carga_masiva}
                         </td>
                         <td className="table-cell whitespace-nowrap" style={{ width: colWidths.usuario }}>
                           {bulto.usuario}

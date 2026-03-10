@@ -148,6 +148,7 @@ async function inicializarTablaHistorico() {
     await addColumnIfMissing('bultos_ov', 'INT DEFAULT 0');
     await addColumnIfMissing('ingresados_ov', 'INT DEFAULT 0');
     await addColumnIfMissing('facturas_ov', 'INT DEFAULT 0');
+    await addColumnIfMissing('id_carga_masiva', 'VARCHAR(50) NULL');
 
     // Dejar solo UNA fecha OV consolidada (ov_fecha). Intentar eliminar fecha_ov si existe.
     const [fechaOvCol] = await connection.query(
@@ -225,6 +226,32 @@ async function inicializarTablaUsuarios() {
 // Llamar al inicializar
 inicializarTablaUsuarios();
 
+// Helper para tabla exportaciones
+async function addColumnIfMissingExport(columnName, columnDef) {
+  try {
+    const connection = await pool.getConnection();
+    const [rows] = await connection.query(
+      `
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = ?
+          AND table_name = 'cmk_bultos_exportado'
+          AND column_name = ?
+        LIMIT 1
+      `,
+      [process.env.DB_NAME, columnName]
+    );
+
+    if (rows.length === 0) {
+      await connection.query(`ALTER TABLE cmk_bultos_exportado ADD COLUMN ${columnName} ${columnDef}`);
+      console.log(`✅ Columna agregada en exportaciones: ${columnName}`);
+    }
+    connection.release();
+  } catch (error) {
+    console.error(`❌ Error al agregar columna ${columnName} en exportaciones:`, error.message);
+  }
+}
+
 // Inicializar tabla de exportaciones (auditoría)
 async function inicializarTablaExportaciones() {
   try {
@@ -245,6 +272,7 @@ async function inicializarTablaExportaciones() {
         filtro_cliente VARCHAR(255),
         filtro_estratificacion VARCHAR(255),
         filtro_accion VARCHAR(255),
+        filtro_id_carga VARCHAR(100),
         filtro_fecha_ingreso VARCHAR(20),
         filtros_json LONGTEXT,
         INDEX idx_usuario (usuario),
@@ -272,6 +300,22 @@ async function inicializarTablaExportaciones() {
     if (!col || col.length === 0) {
       await connection.query('ALTER TABLE cmk_bultos_exportado ADD COLUMN filtro_accion VARCHAR(255) NULL');
       console.log('✅ Columna agregada en exportaciones: filtro_accion');
+    }
+
+    const [colIdCarga] = await connection.query(
+      `
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = ?
+          AND table_name = 'cmk_bultos_exportado'
+          AND column_name = 'filtro_id_carga'
+        LIMIT 1
+      `,
+      [dbName]
+    );
+    if (!colIdCarga || colIdCarga.length === 0) {
+      await connection.query('ALTER TABLE cmk_bultos_exportado ADD COLUMN filtro_id_carga VARCHAR(100) NULL');
+      console.log('✅ Columna agregada en exportaciones: filtro_id_carga');
     }
 
     connection.release();
@@ -353,10 +397,11 @@ app.post('/api/exportaciones/registrar', async (req, res) => {
           filtro_cliente,
           filtro_estratificacion,
           filtro_accion,
+          filtro_id_carga,
           filtro_fecha_ingreso,
           filtros_json
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         usuarioStr,
@@ -370,6 +415,7 @@ app.post('/api/exportaciones/registrar', async (req, res) => {
         filtroCliente,
         filtroEstrat,
         filtroAccion,
+        filtroIdCarga,
         filtroFechaIngreso,
         filtrosJson,
       ]
@@ -810,7 +856,7 @@ app.get('/api/historico/verificar/:codigo', async (req, res) => {
 // Ruta para guardar bulto en histórico
 app.post('/api/historico/guardar', async (req, res) => {
   try {
-    const { codigo_bulto, factura, ov, fecha_documento, usuario, ovInfo, wmsInfo, accionRecomendada } = req.body;
+    const { codigo_bulto, factura, ov, fecha_documento, usuario, ovInfo, wmsInfo, accionRecomendada, id_carga_masiva } = req.body;
 
     if (!codigo_bulto) {
       return res.status(400).json({ error: 'Código de bulto requerido' });
@@ -908,8 +954,8 @@ app.post('/api/historico/guardar', async (req, res) => {
        (codigo_bulto, factura, ov, fecha_documento, usuario,
         ov_comuna, ov_region, ov_estado, ov_estratificacion, ov_direccion, ov_ruta, ov_cliente, ov_fecha,
         wms_estado, wms_codigo_error, wms_tipo_error, wms_mensaje_error, wms_mensaje_usuario, wms_fecha, wms_trn_id,
-        accion_recomendada, bultos_ov, ingresados_ov, facturas_ov) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        accion_recomendada, bultos_ov, ingresados_ov, facturas_ov, id_carga_masiva) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         codigo_bulto,
         factura,
@@ -934,7 +980,8 @@ app.post('/api/historico/guardar', async (req, res) => {
         accion,
         bultos_ov,
         ingresados_ov,
-        facturas_ov
+        facturas_ov,
+        id_carga_masiva ?? null
       ]
     );
 
@@ -973,6 +1020,33 @@ app.get('/api/historico/listar', async (req, res) => {
       error: 'Error al obtener histórico',
       detalle: error.message
     });
+  }
+});
+
+// Ruta para obtener el siguiente ID de Carga Masiva (ej. CM-000001)
+app.get('/api/historico/next-carga-id', async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+
+    const [rows] = await connection.query(
+      `SELECT id_carga_masiva FROM cmk_bultos_historicos WHERE id_carga_masiva LIKE 'CM-%' ORDER BY id_carga_masiva DESC LIMIT 1`
+    );
+
+    connection.release();
+
+    let nextNum = 1;
+    if (rows.length > 0 && rows[0].id_carga_masiva) {
+      const match = rows[0].id_carga_masiva.match(/CM-(\d+)/);
+      if (match) {
+        nextNum = parseInt(match[1], 10) + 1;
+      }
+    }
+
+    const nextId = `CM-${String(nextNum).padStart(6, '0')}`;
+    res.status(200).json({ id: nextId });
+  } catch (error) {
+    console.error('❌ Error al obtener siguiente ID de carga masiva:', error.message);
+    res.status(500).json({ error: 'Error al obtener ID', detalle: error.message });
   }
 });
 

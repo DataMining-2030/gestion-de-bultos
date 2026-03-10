@@ -13,7 +13,7 @@
     "build:frontend:copy": "node scripts/copy-frontend-build.js",
     "build:backend:prod": "npm --prefix backend ci --omit=dev",
     "electron": "electron .",
-    "electron-dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"electron .\"",
+    "electron-dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"electron . --disable-gpu\"",
     "pack": "npm run build && npm run build:backend:prod && electron-builder --dir",
     "dist": "npm run build && npm run build:backend:prod && electron-builder",
     "dist:win": "npm run dist -- --win --x64",

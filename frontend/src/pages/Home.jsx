@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import GestionBultos from './GestionBultos';
 import Historico from './Historico';
 import Dashboard from './Dashboard';
+import CargaMasiva from './CargaMasiva';
 
 function Home({ onLogout, usuario }) {
   const [currentPage, setCurrentPage] = useState('home');
@@ -10,7 +11,7 @@ function Home({ onLogout, usuario }) {
   const menuOptions = [
     {
       id: 'bultos',
-      titulo: 'Centro de Control',
+      titulo: 'Gestión de Bultos',
       descripcion: 'Administra y controla tus bultos',
       icono: '📦',
       color: 'primary',
@@ -21,6 +22,13 @@ function Home({ onLogout, usuario }) {
       descripcion: 'Consulta el historial de operaciones',
       icono: '📋',
       color: 'secondary',
+    },
+    {
+      id: 'carga_masiva',
+      titulo: 'Carga Masiva',
+      descripcion: 'Ingresa múltiples bultos al histórico',
+      icono: '⚡',
+      color: 'warning',
     },
     {
       id: 'dashboard',
@@ -70,6 +78,11 @@ function Home({ onLogout, usuario }) {
   // Renderizar pantalla de Dashboard
   if (currentPage === 'dashboard') {
     return <Dashboard onBack={() => setCurrentPage('home')} />;
+  }
+
+  // Renderizar pantalla de Carga Masiva
+  if (currentPage === 'carga_masiva') {
+    return <CargaMasiva onBack={() => setCurrentPage('home')} usuario={usuario} />;
   }
 
   // Pantalla principal (Home)
