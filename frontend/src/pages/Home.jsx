@@ -10,7 +10,7 @@ function Home({ onLogout, usuario }) {
   const menuOptions = [
     {
       id: 'bultos',
-      titulo: 'Gestión de Bultos',
+      titulo: 'Centro de Control',
       descripcion: 'Administra y controla tus bultos',
       icono: '📦',
       color: 'primary',
@@ -41,7 +41,7 @@ function Home({ onLogout, usuario }) {
   // Renderizar pantalla de Gestión de Bultos
   if (currentPage === 'bultos') {
     return (
-      <GestionBultos 
+      <GestionBultos
         onBack={() => {
           setCodigoBultoABuscar(null);
           setCurrentPage('home');
@@ -55,7 +55,7 @@ function Home({ onLogout, usuario }) {
   // Renderizar pantalla de Histórico
   if (currentPage === 'historico') {
     return (
-      <Historico 
+      <Historico
         onBack={() => setCurrentPage('home')}
         usuario={usuario}
         onBultoSelected={(codigo) => {
@@ -80,33 +80,9 @@ function Home({ onLogout, usuario }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="mb-0 inline-flex items-center gap-2 text-2xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
-                <svg
-                  className="h-7 w-7 text-primary-600"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M3.5 7.2 12 3l8.5 4.2v9.6L12 21l-8.5-4.2V7.2Z"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M12 21V12.2"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                  <path
-                    d="M3.8 7.3 12 11.4l8.2-4.1"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                <span>Gestión de Bultos</span>
+              <h1 className="mb-0 inline-flex items-center gap-3 text-2xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
+                <img src="/camion.png" alt="Logo" className="h-10 w-auto object-contain" />
+                <span>Centro de Control de Despacho</span>
               </h1>
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
                 Bienvenido, {usuario?.usuario || 'Usuario'}
@@ -143,11 +119,10 @@ function Home({ onLogout, usuario }) {
                 }}
                 disabled={option.disabled}
                 aria-disabled={option.disabled ? 'true' : 'false'}
-                className={`card transition-all duration-300 text-left group ${
-                  option.disabled
-                    ? 'opacity-60 cursor-not-allowed'
-                    : 'cursor-pointer hover:shadow-lg hover:-translate-y-1'
-                }`}
+                className={`card transition-all duration-300 text-left group ${option.disabled
+                  ? 'opacity-60 cursor-not-allowed'
+                  : 'cursor-pointer hover:shadow-lg hover:-translate-y-1'
+                  }`}
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="text-5xl">{option.icono}</div>
@@ -159,11 +134,10 @@ function Home({ onLogout, usuario }) {
                 </div>
 
                 <h3
-                  className={`text-xl font-bold text-gray-900 dark:text-gray-100 mb-2 transition-colors ${
-                    option.disabled
-                      ? ''
-                      : 'group-hover:text-primary-600 dark:group-hover:text-primary-400'
-                  }`}
+                  className={`text-xl font-bold text-gray-900 dark:text-gray-100 mb-2 transition-colors ${option.disabled
+                    ? ''
+                    : 'group-hover:text-primary-600 dark:group-hover:text-primary-400'
+                    }`}
                 >
                   {option.titulo}
                 </h3>
@@ -173,11 +147,10 @@ function Home({ onLogout, usuario }) {
                 </p>
 
                 <div
-                  className={`flex items-center transition-transform ${
-                    option.disabled
-                      ? 'text-gray-400'
-                      : 'text-primary-500 group-hover:translate-x-2'
-                  }`}
+                  className={`flex items-center transition-transform ${option.disabled
+                    ? 'text-gray-400'
+                    : 'text-primary-500 group-hover:translate-x-2'
+                    }`}
                 >
                   <span className="text-sm font-medium">
                     {option.disabled ? 'No disponible' : 'Acceder'}

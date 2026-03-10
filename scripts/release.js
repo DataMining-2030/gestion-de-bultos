@@ -53,12 +53,12 @@ function color(code, text) {
   return `\x1b[${code}m${text}\x1b[0m`;
 }
 
-const cyan   = (t) => color('36',   t);
-const green  = (t) => color('32',   t);
-const yellow = (t) => color('33',   t);
-const red    = (t) => color('31;1', t);
-const bold   = (t) => color('1',    t);
-const dim    = (t) => color('2',    t);
+const cyan = (t) => color('36', t);
+const green = (t) => color('32', t);
+const yellow = (t) => color('33', t);
+const red = (t) => color('31;1', t);
+const bold = (t) => color('1', t);
+const dim = (t) => color('2', t);
 
 function run(cmd, opts = {}) {
   console.log(dim(`  $ ${cmd}`));
@@ -89,9 +89,9 @@ async function selectBump(rl, currentVersion) {
   const [major, minor, patch] = currentVersion.split('.').map(Number);
 
   const opts = [
-    { key: '1', label: 'patch', next: `${major}.${minor}.${patch + 1}`,   desc: 'Bug fix / corrección' },
-    { key: '2', label: 'minor', next: `${major}.${minor + 1}.0`,           desc: 'Nueva funcionalidad compatible' },
-    { key: '3', label: 'major', next: `${major + 1}.0.0`,                  desc: 'Cambio incompatible / rediseño' },
+    { key: '1', label: 'patch', next: `${major}.${minor}.${patch + 1}`, desc: 'Bug fix / corrección' },
+    { key: '2', label: 'minor', next: `${major}.${minor + 1}.0`, desc: 'Nueva funcionalidad compatible' },
+    { key: '3', label: 'major', next: `${major + 1}.0.0`, desc: 'Cambio incompatible / rediseño' },
   ];
 
   console.log('');
@@ -115,9 +115,9 @@ async function selectBump(rl, currentVersion) {
 
 async function main() {
   console.log('');
-  console.log(bold(cyan('  ╔══════════════════════════════════╗')));
-  console.log(bold(cyan('  ║     Gestion de Bultos – Release  ║')));
-  console.log(bold(cyan('  ╚══════════════════════════════════╝')));
+  console.log(bold(cyan('  ╔════════════════════════════════════════╗')));
+  console.log(bold(cyan('  ║ Centro de Control de Despacho – Release║')));
+  console.log(bold(cyan('  ╚════════════════════════════════════════╝')));
   console.log('');
 
   // Versión actual
@@ -225,7 +225,7 @@ async function main() {
           if (oldFiles.length > 0) {
             console.log(dim(`  🧹 Limpiando ${oldFiles.length} archivo(s) viejo(s) de /dist...`));
             for (const f of oldFiles) {
-              try { fs.unlinkSync(path.join(distDir, f)); } catch (_) {}
+              try { fs.unlinkSync(path.join(distDir, f)); } catch (_) { }
             }
           }
         }

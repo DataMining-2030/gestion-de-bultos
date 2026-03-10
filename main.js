@@ -100,6 +100,7 @@ function createSplashWindow() {
     width: 400, height: 300,
     frame: false, resizable: false, center: true, show: false, // Esperar al renderizado
     alwaysOnTop: true, skipTaskbar: true, backgroundColor: BACKGROUND_COLOR,
+    icon: path.join(__dirname, 'assets', 'icon.png'),
     webPreferences: { nodeIntegration: false, contextIsolation: true }
   });
 
@@ -125,6 +126,7 @@ function createSplashWindow() {
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1200, height: 800, show: false, backgroundColor: BACKGROUND_COLOR,
+    icon: path.join(__dirname, 'assets', 'icon.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), nodeIntegration: false, contextIsolation: true }
   });
   mainWindow.setAutoHideMenuBar(true);

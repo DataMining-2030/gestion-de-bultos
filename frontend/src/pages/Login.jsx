@@ -23,7 +23,8 @@ function Login({ onLoginSuccess }) {
   const firma = useMemo(
     () => ({
       year: new Date().getFullYear(),
-      product: 'Gestión de Bultos',
+      client: 'DATA MINING',
+      product: 'Centro de Control de Despacho',
       version: appVersion,
     }),
     [appVersion]
@@ -92,33 +93,9 @@ function Login({ onLoginSuccess }) {
       <div className="mx-auto w-full max-w-[460px] animate-slide-up">
         {/* Título + Subtítulo */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center gap-2 text-2xl font-extrabold tracking-tight text-slate-900 mb-1">
-            <svg
-              className="h-7 w-7 text-primary-600"
-              viewBox="0 0 24 24"
-              fill="none"
-              aria-hidden="true"
-            >
-              <path
-                d="M3.5 7.2 12 3l8.5 4.2v9.6L12 21l-8.5-4.2V7.2Z"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M12 21V12.2"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-              <path
-                d="M3.8 7.3 12 11.4l8.2-4.1"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <span>Gestión de Bultos</span>
+          <div className="inline-flex items-center justify-center gap-3 text-2xl font-extrabold tracking-tight text-slate-900 mb-2">
+            <img src="/camion.png" alt="Logo Camión" className="h-12 w-auto object-contain drop-shadow-md" />
+            <span>Centro Control Despacho</span>
           </div>
           <div className="text-xs text-slate-500">Inicia sesión en tu cuenta</div>
         </div>
