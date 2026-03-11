@@ -26,7 +26,7 @@ function CargaMasiva({ onBack, usuario }) {
               >
                 ← Atrás
               </button>
-              <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100 mb-0">
+              <h1 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-100 mb-0">
                 Seleccionar Método de Carga
               </h1>
             </div>
@@ -37,7 +37,7 @@ function CargaMasiva({ onBack, usuario }) {
       {/* Contenido */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-10">
-          <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white mb-4">
+          <h2 className="text-3xl font-semibold text-gray-900 dark:text-white mb-4">
             Carga Masiva al Histórico
           </h2>
           <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
@@ -60,7 +60,7 @@ function CargaMasiva({ onBack, usuario }) {
                 />
               </div>
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+            <h3 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
               Por Pistoleo Rápido
             </h3>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
@@ -84,7 +84,7 @@ function CargaMasiva({ onBack, usuario }) {
                 📊
               </div>
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-success-600 dark:group-hover:text-success-400 transition-colors">
+            <h3 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-success-600 dark:group-hover:text-success-400 transition-colors">
               Por Archivo Excel
             </h3>
             <p className="text-gray-600 dark:text-gray-400 mb-6">

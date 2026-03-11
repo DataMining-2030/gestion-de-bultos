@@ -10,38 +10,56 @@ const path = require('path');
 const fs = require('fs');
 const dotenv = require('dotenv');
 
-function resolveBackendEnvPath() {
-  const candidates = [
-    // Dev y también prod si el .env se incluyó dentro de app/backend/.env
-    path.join(__dirname, '..', '.env'),
-    // Prod empaquetado: extraResources -> resources/backend/.env
-    // process.resourcesPath existe en Electron empaquetado.
-    ...(process && process.resourcesPath
-      ? [path.join(process.resourcesPath, 'backend', '.env')]
-      : []),
-    // Ejecutando desde raíz del repo (fallback dev)
-    path.join(process.cwd(), 'backend', '.env'),
-  ];
+// Runtime Decryption Logic
+function cargarVariablesEntorno() {
+  const encPath = process && process.resourcesPath ? path.join(process.resourcesPath, 'backend', '.env.enc') : null;
 
-  for (const p of candidates) {
+  // 1. Intento cargar versión encriptada (Producción)
+  if (encPath && fs.existsSync(encPath)) {
     try {
-      if (p && fs.existsSync(p)) return p;
-    } catch (e) {
-      // ignore
+      const crypto = require('crypto');
+      const encrypted = fs.readFileSync(encPath, 'utf8');
+      
+      const key = crypto.scryptSync('ccd_secure_key_2026_xyz', 'ccd_salt', 32);
+      const iv = Buffer.alloc(16, 0);
+      
+      const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+      let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+      decrypted += decipher.final('utf8');
+      
+      const envConfig = dotenv.parse(decrypted);
+      for (const k in envConfig) {
+        process.env[k] = envConfig[k];
+      }
+      return '.env.enc (Encriptado)';
+    } catch (err) {
+      console.error('Error desencriptando credenciales:', err);
     }
   }
 
-  const attempted = candidates.filter(Boolean).join(' | ');
-  throw new Error(`No se encontró backend/.env. Rutas probadas: ${attempted}`);
+  // 2. Fallback a .env en texto plano (Desarrollo)
+  const candidates = [
+    path.join(__dirname, '..', '.env'),
+    path.join(process.cwd(), 'backend', '.env'),
+    path.join(process.cwd(), '.env')
+  ];
+
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      dotenv.config({ path: p });
+      return p;
+    }
+  }
+
+  throw new Error(`No se encontró backend/.env ni .env.enc en las rutas probadas.`);
 }
 
-const ENV_PATH = resolveBackendEnvPath();
-dotenv.config({ path: ENV_PATH });
+const ENV_SOURCE = cargarVariablesEntorno();
 
 function requiredEnv(name) {
   const v = process.env[name];
   if (v === undefined || v === null || String(v).trim() === '') {
-    throw new Error(`Falta variable requerida en backend/.env (${ENV_PATH}): ${name}`);
+    throw new Error(`Falta variable requerida en backend/.env (${ENV_SOURCE}): ${name}`);
   }
   return String(v).trim();
 }
@@ -50,12 +68,12 @@ function requiredIntEnv(name) {
   const raw = requiredEnv(name);
   const n = parseInt(raw, 10);
   if (!Number.isFinite(n)) {
-    throw new Error(`Variable inválida en backend/.env (se esperaba número): ${name}=${raw}`);
+    throw new Error(`Variable inválida (se esperaba número): ${name}=${raw}`);
   }
   return n;
 }
 
-// Credenciales desde backend/.env
+// Credenciales desde entorno
 const CREDENCIALES = {
   HANNA: {
     address: requiredEnv('HANNA_ADDRESS'),

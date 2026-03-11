@@ -252,7 +252,7 @@ function GestionBultos({ onBack, codigoBultoInicial, usuario }) {
               ← Atrás
             </button>
             <div>
-              <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100 mb-0">
+              <h1 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-100 mb-0">
                 Gestión de Bultos
               </h1>
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
@@ -368,13 +368,13 @@ function GestionBultos({ onBack, codigoBultoInicial, usuario }) {
               <div className="flex justify-between items-start mb-2">
                 <div>
                   <div className="flex items-center gap-3">
-                    <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">
+                    <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
                       {bultoInfo.codigo}
                     </h2>
                     {(() => {
                       const estado = getEstadoIndicador(bultoInfo.codigo);
                       return (
-                        <span className={`text-base font-bold ${estado.color}`}>
+                        <span className={`text-base font-semibold ${estado.color}`}>
                           {estado.icon}
                         </span>
                       );
@@ -389,7 +389,7 @@ function GestionBultos({ onBack, codigoBultoInicial, usuario }) {
                   <div className="space-y-3">
                     <div>
                       <p className="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">N° OV</p>
-                      <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                         {bultoInfo.ov || '-'}
                       </p>
                     </div>
@@ -426,7 +426,7 @@ function GestionBultos({ onBack, codigoBultoInicial, usuario }) {
                   <div className="space-y-3">
                     <div>
                       <p className="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">Factura</p>
-                      <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                         {bultoInfo.factura || '-'}
                       </p>
                     </div>
@@ -445,7 +445,7 @@ function GestionBultos({ onBack, codigoBultoInicial, usuario }) {
                       <p className="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                         Total bultos (OV)
                       </p>
-                      <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                         {(() => getMetricasOV().total)()}
                       </p>
                     </div>
@@ -453,7 +453,7 @@ function GestionBultos({ onBack, codigoBultoInicial, usuario }) {
                       <p className="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                         Facturas (OV)
                       </p>
-                      <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                         {(() => getMetricasOV().facturasOV)()}
                       </p>
                     </div>
@@ -462,7 +462,7 @@ function GestionBultos({ onBack, codigoBultoInicial, usuario }) {
                         <p className="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                           Ingresados
                         </p>
-                        <p className="text-sm font-bold text-primary-600 dark:text-primary-400">
+                        <p className="text-sm font-semibold text-primary-600 dark:text-primary-400">
                           {(() => getMetricasOV().ingresados)()}
                         </p>
                       </div>
@@ -470,7 +470,7 @@ function GestionBultos({ onBack, codigoBultoInicial, usuario }) {
                         <p className="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                           Faltan
                         </p>
-                        <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                           {(() => getMetricasOV().faltan)()}
                         </p>
                       </div>
@@ -480,7 +480,7 @@ function GestionBultos({ onBack, codigoBultoInicial, usuario }) {
                         <p className="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                           Facturados
                         </p>
-                        <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                           {(() => getMetricasOV().facturados)()}
                         </p>
                       </div>
@@ -488,7 +488,7 @@ function GestionBultos({ onBack, codigoBultoInicial, usuario }) {
                         <p className="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                           Sin factura
                         </p>
-                        <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                           {(() => getMetricasOV().sinFactura)()}
                         </p>
                       </div>
@@ -618,7 +618,7 @@ function GestionBultos({ onBack, codigoBultoInicial, usuario }) {
                                   estadoHistorico[bulto.codigo] ? 'border-success-200' : 'border-danger-200'
                                 }`}
                               >
-                                <div className={`text-base font-bold ${estado.color}`}>
+                                <div className={`text-base font-semibold ${estado.color}`}>
                                   {estado.icon}
                                 </div>
                                 <div className="flex-1 min-w-0">
@@ -683,7 +683,7 @@ function GestionBultos({ onBack, codigoBultoInicial, usuario }) {
         {showConfirm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
                 ⚠️ Confirmación
               </h3>
               <p className="text-gray-700 dark:text-gray-300 mb-6 whitespace-pre-line">

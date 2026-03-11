@@ -119,7 +119,7 @@ function CargaMasivaPistoleo({ onBack, usuario }) {
               ← Atrás
             </button>
             <div>
-              <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100 mb-0">
+              <h1 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-100 mb-0">
                 Pistoleo de Carga Masiva
               </h1>
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
@@ -134,7 +134,7 @@ function CargaMasivaPistoleo({ onBack, usuario }) {
         {/* Lado Izquierdo: Input y Resumen */}
         <div className="w-full md:w-1/3 flex flex-col gap-6 shrink-0">
           <div className="card">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">Ingreso de Bulto</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Ingreso de Bulto</h2>
             <div className="form-group mb-0">
               <input
                 ref={inputRef}
@@ -144,7 +144,7 @@ function CargaMasivaPistoleo({ onBack, usuario }) {
                 onChange={(e) => setInputVal(e.target.value)}
                 onKeyDown={handleKeyDown}
                 disabled={isProcessing || results !== null}
-                className="input-field w-full text-center text-xl font-bold uppercase placeholder-gray-400"
+                className="input-field w-full text-center text-xl font-semibold uppercase placeholder-gray-400"
                 autoFocus
               />
               <p className="text-xs text-gray-500 mt-2 text-center">
@@ -185,7 +185,7 @@ function CargaMasivaPistoleo({ onBack, usuario }) {
 
           {results && (
             <div className="card">
-              <h3 className="font-bold text-lg mb-2 text-gray-900 dark:text-gray-100">Resumen Carga</h3>
+              <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-gray-100">Resumen Carga</h3>
               <div className="text-sm mb-4">
                 <span className="block text-gray-500">ID:</span>
                 <span className="font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded select-all">{results.id}</span>
@@ -213,7 +213,7 @@ function CargaMasivaPistoleo({ onBack, usuario }) {
         {/* Lado Derecho: Lista de Escaneados */}
         <div className="flex-1 card flex flex-col overflow-hidden p-0 border-0 shadow-lg relative">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-            <h3 className="font-bold text-gray-800 dark:text-gray-200">Bultos en Sesión</h3>
+            <h3 className="font-semibold text-gray-800 dark:text-gray-200">Bultos en Sesión</h3>
           </div>
           
           <div className="flex-1 overflow-y-auto p-4 bg-white dark:bg-gray-900">
@@ -226,7 +226,7 @@ function CargaMasivaPistoleo({ onBack, usuario }) {
 
             {results?.errors && results.errors.length > 0 && (
               <div className="mb-6">
-                <h4 className="font-bold text-danger-600 text-sm mb-2 uppercase break-words">Log de Errores ({results.errors.length})</h4>
+                <h4 className="font-semibold text-danger-600 text-sm mb-2 uppercase break-words">Log de Errores ({results.errors.length})</h4>
                 <div className="bg-danger-50 dark:bg-danger-900/30 border border-danger-200 p-3 rounded-lg flex flex-col gap-1 text-sm text-danger-800">
                   {results.errors.map((err, i) => (
                     <div key={i}>• {err}</div>
@@ -241,7 +241,7 @@ function CargaMasivaPistoleo({ onBack, usuario }) {
                   <li key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 animate-slide-up group">
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-gray-400 font-mono w-6">{bultos.length - idx}</span>
-                      <span className="font-bold text-gray-800 dark:text-gray-200">{code}</span>
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">{code}</span>
                     </div>
                     <button
                       onClick={() => removeBulto(idx)}

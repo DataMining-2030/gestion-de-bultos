@@ -376,7 +376,7 @@ function Historico({ onBack, onBultoSelected, usuario }) {
               ← Atrás
             </button>
             <div>
-              <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100 mb-0">
+              <h1 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-100 mb-0">
                 Histórico de Bultos
               </h1>
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
@@ -728,10 +728,10 @@ function Historico({ onBack, onBultoSelected, usuario }) {
                         >
                           {bulto.accion_recomendada}
                         </td>
-                        <td className="table-cell whitespace-nowrap text-center font-bold" style={{ width: colWidths.bultos_ov }}>
+                        <td className="table-cell whitespace-nowrap text-center font-semibold" style={{ width: colWidths.bultos_ov }}>
                           {bulto.bultos_ov}
                         </td>
-                        <td className="table-cell whitespace-nowrap text-center font-bold text-primary-600 dark:text-primary-400" style={{ width: colWidths.ingresados_ov }}>
+                        <td className="table-cell whitespace-nowrap text-center font-semibold text-primary-600 dark:text-primary-400" style={{ width: colWidths.ingresados_ov }}>
                           {bulto.ingresados_ov}
                         </td>
                         <td className="table-cell whitespace-nowrap text-center" style={{ width: colWidths.facturas_ov }}>
@@ -799,7 +799,7 @@ function Historico({ onBack, onBultoSelected, usuario }) {
         {!loading && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
             <div className="card text-center">
-              <p className="text-3xl font-bold text-primary-600 dark:text-primary-400">
+              <p className="text-3xl font-semibold text-primary-600 dark:text-primary-400">
                 {bultos.length}
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
@@ -807,7 +807,7 @@ function Historico({ onBack, onBultoSelected, usuario }) {
               </p>
             </div>
             <div className="card text-center">
-              <p className="text-3xl font-bold text-success-600 dark:text-success-400">
+              <p className="text-3xl font-semibold text-success-600 dark:text-success-400">
                 {bultosFiltrados.length}
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
@@ -815,7 +815,7 @@ function Historico({ onBack, onBultoSelected, usuario }) {
               </p>
             </div>
             <div className="card text-center">
-              <p className="text-3xl font-bold text-secondary-600 dark:text-secondary-400">
+              <p className="text-3xl font-semibold text-secondary-600 dark:text-secondary-400">
                 {totalPages}
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">

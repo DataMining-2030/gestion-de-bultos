@@ -66,7 +66,7 @@ function Dashboard({ onBack }) {
               ← Atrás
             </button>
             <div>
-              <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100 mb-0">
+              <h1 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-100 mb-0">
                 Dashboard
               </h1>
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
@@ -88,7 +88,7 @@ function Dashboard({ onBack }) {
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
                     {stat.titulo}
                   </p>
-                  <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+                  <p className="text-3xl font-semibold text-gray-900 dark:text-gray-100 mt-1">
                     {stat.valor}
                   </p>
                 </div>
@@ -113,7 +113,7 @@ function Dashboard({ onBack }) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Gráfico (placeholder) */}
           <div className="lg:col-span-2 card">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
               Tendencia de Bultos (últimos 7 días)
             </h3>
             <div className="h-64 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded">
@@ -130,7 +130,7 @@ function Dashboard({ onBack }) {
 
           {/* Actividad Reciente */}
           <div className="card">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
               Actividad Reciente
             </h3>
             <div className="space-y-3">
@@ -167,7 +167,7 @@ function Dashboard({ onBack }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
           {/* Centros de Distribución */}
           <div className="card">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
               Centros de Distribución
             </h3>
             <div className="space-y-3">
@@ -195,7 +195,7 @@ function Dashboard({ onBack }) {
 
           {/* Clientes Top */}
           <div className="card">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
               Clientes Principales
             </h3>
             <div className="space-y-3">

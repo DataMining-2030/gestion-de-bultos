@@ -170,7 +170,7 @@ function CargaMasivaExcel({ onBack, usuario }) {
               ← Atrás
             </button>
             <div>
-              <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100 mb-0">
+              <h1 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-100 mb-0">
                 Subida de Archivo Excel
               </h1>
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
@@ -190,7 +190,7 @@ function CargaMasivaExcel({ onBack, usuario }) {
             <>
               {/* Paso 1 */}
               <div className="card border-l-4 border-l-secondary-500">
-                <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">1. Descargar Plantilla</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">1. Descargar Plantilla</h2>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                   Obtén el formato correcto. Solo los códigos listados en la primera columna debajo de "Código Bulto" serán leídos.
                 </p>
@@ -207,7 +207,7 @@ function CargaMasivaExcel({ onBack, usuario }) {
 
               {/* Paso 2 */}
               <div className="card border-l-4 border-l-primary-500">
-                <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">2. Subir Archivo</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">2. Subir Archivo</h2>
                 
                 <input 
                   type="file" 
@@ -287,7 +287,7 @@ function CargaMasivaExcel({ onBack, usuario }) {
 
           {results && (
             <div className="card border-t-4 border-primary-500">
-              <h3 className="font-bold text-lg mb-2 text-gray-900 dark:text-gray-100">Resumen Excel</h3>
+              <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-gray-100">Resumen Excel</h3>
               <div className="text-sm mb-4">
                 <span className="block text-gray-500">ID Lote:</span>
                 <span className="font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded select-all">{results.id}</span>
@@ -315,7 +315,7 @@ function CargaMasivaExcel({ onBack, usuario }) {
         {/* Lado Derecho: Preview de Bultos */}
         <div className="flex-1 card flex flex-col overflow-hidden p-0 border-0 shadow-lg relative">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-            <h3 className="font-bold text-gray-800 dark:text-gray-200">
+            <h3 className="font-semibold text-gray-800 dark:text-gray-200">
               {results ? 'Log de Errores' : 'Vista Previa (Primeros 100 max)'}
             </h3>
           </div>

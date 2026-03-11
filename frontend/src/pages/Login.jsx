@@ -89,11 +89,11 @@ function Login({ onLoginSuccess }) {
   };
 
   return (
-    <div className="min-h-screen login-bg px-4 flex items-center justify-center">
-      <div className="mx-auto w-full max-w-[460px] animate-slide-up">
+    <div className="min-h-screen login-bg px-4 flex items-center justify-center relative overflow-hidden">
+      <div className="mx-auto w-full max-w-[460px] animate-slide-up relative z-10">
         {/* Título + Subtítulo */}
         <div className="text-center mb-6">
-          <div className="flex flex-col items-center justify-center gap-4 text-2xl font-extrabold tracking-tight text-slate-900 mb-2">
+          <div className="flex flex-col items-center justify-center gap-4 text-2xl font-semibold tracking-tight text-slate-900 mb-2">
             <img src="./camion.png" alt="Logo Camión" className="h-[4.5rem] w-auto object-contain drop-shadow-md" />
             <span className="text-center leading-tight">Centro de Control de<br />Despacho</span>
           </div>
